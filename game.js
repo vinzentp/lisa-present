@@ -58,6 +58,131 @@ let presentX = 0;
 let gameWon = false;
 let winAnimationStart = 0;
 
+// ============================================
+// OBSTACLES SYSTEM
+// Add your obstacle image filenames here!
+// Place the image in the /obstacles folder and configure below
+// ============================================
+const OBSTACLE_FILES = [
+    { file: 'couch.png', size: 2.0, rotation: 15 },
+    // Example:
+    // { file: 'rock.png', size: 1.0, rotation: 0 },
+    // { file: 'snowman.png', size: 1.5, rotation: 0 },
+    // { file: 'sign.png', size: 0.8, rotation: -15 },
+    //
+    // Parameters:
+    //   file: filename in /obstacles folder
+    //   size: size multiplier (1.0 = normal, 2.0 = double, 0.5 = half)
+    //   rotation: rotation in degrees (positive = clockwise)
+];
+
+// Obstacle settings
+const OBSTACLE_BASE_SIZE = 60; // Base size in pixels (will be scaled)
+const OBSTACLE_SPACING_MIN = 300; // Minimum distance between obstacles
+const OBSTACLE_SPACING_MAX = 600; // Maximum distance between obstacles
+
+// Load obstacle images
+const obstacleData = [];
+let obstaclesLoaded = 0;
+
+OBSTACLE_FILES.forEach((obstacle, index) => {
+    const img = new Image();
+    img.src = `obstacles/${obstacle.file}`;
+    img.onload = () => {
+        obstaclesLoaded++;
+    };
+    obstacleData.push({
+        image: img,
+        size: obstacle.size || 1.0,
+        rotation: obstacle.rotation || 0
+    });
+});
+
+// Active obstacles in the game
+let obstacles = [];
+let nextObstacleDistance = OBSTACLE_SPACING_MIN + Math.random() * (OBSTACLE_SPACING_MAX - OBSTACLE_SPACING_MIN);
+
+// Spawn a new obstacle
+function spawnObstacle() {
+    if (obstacleData.length === 0) return;
+
+    const randomObstacle = obstacleData[Math.floor(Math.random() * obstacleData.length)];
+    const size = OBSTACLE_BASE_SIZE * SCALE * randomObstacle.size;
+
+    obstacles.push({
+        x: CANVAS_WIDTH + size,
+        image: randomObstacle.image,
+        size: size,
+        rotation: randomObstacle.rotation
+    });
+
+    nextObstacleDistance = OBSTACLE_SPACING_MIN + Math.random() * (OBSTACLE_SPACING_MAX - OBSTACLE_SPACING_MIN);
+}
+
+// Update obstacles
+function updateObstacles() {
+    if (gameWon) return;
+
+    // Move obstacles with background
+    obstacles.forEach(obstacle => {
+        obstacle.x -= BASE_SCROLL_SPEED * SCALE;
+    });
+
+    // Remove off-screen obstacles
+    obstacles = obstacles.filter(obstacle => obstacle.x > -obstacle.size);
+
+    // Spawn new obstacles based on distance traveled
+    if (obstacleData.length > 0) {
+        const distanceInPixels = distanceTraveled * PIXELS_PER_METER * SCALE;
+        if (distanceInPixels > nextObstacleDistance) {
+            spawnObstacle();
+            nextObstacleDistance = distanceInPixels + OBSTACLE_SPACING_MIN + Math.random() * (OBSTACLE_SPACING_MAX - OBSTACLE_SPACING_MIN);
+        }
+    }
+}
+
+// Draw obstacles
+function drawObstacles() {
+    obstacles.forEach(obstacle => {
+        const groundY = getGroundYAtX(obstacle.x);
+        const drawX = obstacle.x;
+
+        // Calculate dimensions maintaining aspect ratio
+        const img = obstacle.image;
+        const aspectRatio = img.naturalWidth / img.naturalHeight;
+        let drawWidth, drawHeight;
+
+        if (aspectRatio >= 1) {
+            // Wider than tall
+            drawWidth = obstacle.size;
+            drawHeight = obstacle.size / aspectRatio;
+        } else {
+            // Taller than wide
+            drawHeight = obstacle.size;
+            drawWidth = obstacle.size * aspectRatio;
+        }
+
+        const drawY = groundY - drawHeight / 2;
+
+        ctx.save();
+
+        // Move to obstacle center and rotate
+        ctx.translate(drawX, drawY);
+        ctx.rotate(obstacle.rotation * Math.PI / 180);
+
+        // Draw image centered, maintaining aspect ratio
+        ctx.drawImage(
+            img,
+            -drawWidth / 2,
+            -drawHeight / 2,
+            drawWidth,
+            drawHeight
+        );
+
+        ctx.restore();
+    });
+}
+
 // Colors (pixel art palette)
 const COLORS = {
     sky: '#87CEEB',
@@ -117,7 +242,7 @@ let backgroundOffset = 0;
 const BASE_SCROLL_SPEED = 5;
 
 // Distance tracking (in meters)
-const TOTAL_DISTANCE = 10; // Total distance to the present in meters
+const TOTAL_DISTANCE = 3000; // Total distance to the present in meters
 const PIXELS_PER_METER = 10; // How many pixels equal one meter
 let distanceTraveled = 0;
 
@@ -555,6 +680,9 @@ function update() {
         // Keep skier on the slope when not jumping
         skier.y = groundAtSkier;
     }
+
+    // Update obstacles
+    updateObstacles();
 }
 
 // Draw title text in pixel art style
@@ -809,7 +937,7 @@ function drawWinScreen() {
         const lines = [
             "✨ ALL-INCLUSIVE SKITRIP ✨",
             "nach",
-            "🏔️ HOCHFICHT, AUSTRIA 🏔️",
+            "🏔️ HOCHFICHT, Österreich 🏔️",
             "📅 6. Januar 2026 📅"
         ];
 
@@ -972,6 +1100,9 @@ function render() {
     drawMountains();
     drawTrees();
     drawGround();
+
+    // Draw obstacles
+    drawObstacles();
 
     // Draw the present (if visible)
     drawPresent();
