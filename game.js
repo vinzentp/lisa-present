@@ -57,6 +57,11 @@ let presentX = 0;
 // Game end state
 let gameWon = false;
 let winAnimationStart = 0;
+let gameOver = false;
+let gameOverStart = 0;
+
+// Obstacle sliding state
+let skierOnObstacle = false;
 
 // ============================================
 // OBSTACLES SYSTEM
@@ -119,9 +124,100 @@ function spawnObstacle() {
     nextObstacleDistance = OBSTACLE_SPACING_MIN + Math.random() * (OBSTACLE_SPACING_MAX - OBSTACLE_SPACING_MIN);
 }
 
+// Check collision between skier and obstacles
+// Uses perpendicular distance between parallel lines (skis and obstacle top)
+function checkObstacleCollision() {
+    if (gameOver || gameWon) return;
+
+    // Slope geometry
+    const slopeAngle = SLOPE_ANGLE;
+    const slopeFactor = Math.sqrt(slopeAngle * slopeAngle + 1); // For perpendicular distance calc
+
+    // Thresholds (perpendicular distance)
+    const landingThreshold = 12 * SCALE;   // Above this: normal falling physics
+    const slidingBuffer = 3 * SCALE;       // Maintain this distance when sliding
+    const collisionThreshold = -8 * SCALE; // Below this: game over
+
+    let landOnObstacle = null;
+    let nowOnObstacle = false;
+
+    for (const obstacle of obstacles) {
+        // Calculate obstacle dimensions maintaining aspect ratio
+        const img = obstacle.image;
+        const aspectRatio = img.naturalWidth / img.naturalHeight || 1;
+        let obsWidth, obsHeight;
+        if (aspectRatio >= 1) {
+            obsWidth = obstacle.size;
+            obsHeight = obstacle.size / aspectRatio;
+        } else {
+            obsHeight = obstacle.size;
+            obsWidth = obstacle.size * aspectRatio;
+        }
+
+        // Check horizontal overlap (x-axis)
+        const skierLeft = skier.x;
+        const skierRight = skier.x + skier.width;
+        const obsLeft = obstacle.x - obsWidth / 2;
+        const obsRight = obstacle.x + obsWidth / 2;
+        const padding = 5 * SCALE;
+        if (skierRight <= obsLeft + padding || skierLeft >= obsRight - padding) {
+            continue; // No horizontal overlap
+        }
+
+        // Obstacle top is a line parallel to the slope
+        // Calculate Y of this line at the obstacle's x position
+        const obsGroundY = getGroundYAtX(obstacle.x);
+        const obsTopY = obsGroundY - obsHeight;
+
+        // Calculate Y of obstacle top line at skier's x position
+        // (since both lines are parallel to slope with angle -slopeAngle)
+        const lineYAtSkierX = obsTopY - slopeAngle * (skier.x - obstacle.x);
+
+        // Perpendicular distance from skier's feet to obstacle top line
+        // Positive = skier above line, Negative = skier below line
+        const perpDistance = (lineYAtSkierX - skier.y) / slopeFactor;
+
+        if (perpDistance > landingThreshold) {
+            // Far above obstacle - normal falling physics, no interaction yet
+            continue;
+        } else if (perpDistance >= collisionThreshold) {
+            // In the landing/sliding zone
+            // Only land if: falling (velocityY > 0) OR already on an obstacle
+            if (skier.velocityY > 0 || skierOnObstacle) {
+                // Track the highest obstacle to land on
+                if (landOnObstacle === null || obsTopY < landOnObstacle.topY) {
+                    landOnObstacle = {
+                        obsX: obstacle.x,
+                        topY: obsTopY
+                    };
+                }
+                nowOnObstacle = true;
+            }
+            // If going up (velocityY <= 0) and not on obstacle, let skier pass
+        } else {
+            // Below collision threshold - front collision!
+            gameOver = true;
+            gameOverStart = Date.now();
+            return;
+        }
+    }
+
+    // Update obstacle state
+    skierOnObstacle = nowOnObstacle;
+
+    // If landing on obstacle, set skier position to maintain slidingBuffer distance
+    if (landOnObstacle !== null) {
+        // Calculate where skier.y should be to maintain slidingBuffer perpendicular distance
+        const lineYAtSkierX = landOnObstacle.topY - slopeAngle * (skier.x - landOnObstacle.obsX);
+        skier.y = lineYAtSkierX - slidingBuffer * slopeFactor;
+        skier.velocityY = 0;
+        skier.isJumping = true;
+    }
+}
+
 // Update obstacles
 function updateObstacles() {
-    if (gameWon) return;
+    if (gameWon || gameOver) return;
 
     // Move obstacles with background
     obstacles.forEach(obstacle => {
@@ -273,12 +369,39 @@ const trees = [
 // Input handling
 const keys = {};
 
+// Restart game function
+function restartGame() {
+    gameOver = false;
+    gameOverStart = 0;
+    backgroundOffset = 0;
+    distanceTraveled = 0;
+    obstacles = [];
+    nextObstacleDistance = OBSTACLE_SPACING_MIN + Math.random() * (OBSTACLE_SPACING_MAX - OBSTACLE_SPACING_MIN);
+    presentVisible = false;
+    presentX = 0;
+    skier.x = 150 * SCALE;
+    skier.y = getGroundYAtX(skier.x);
+    skier.velocityY = 0;
+    skier.isJumping = false;
+    skierOnObstacle = false;
+}
+
 document.addEventListener('keydown', (e) => {
     keys[e.code] = true;
+
+    // Restart game on space when game over
+    if (e.code === 'Space' && gameOver) {
+        restartGame();
+        return;
+    }
+
     if (e.code === 'KeyW' || e.code === 'ArrowUp') {
-        if (!skier.isJumping) {
+        // Can jump if: not game over AND (not jumping OR currently on an obstacle)
+        const canJump = !gameOver && (!skier.isJumping || skierOnObstacle);
+        if (canJump) {
             skier.velocityY = skier.jumpPower;
             skier.isJumping = true;
+            skierOnObstacle = false; // Leaving the obstacle
         }
     }
 });
@@ -632,8 +755,8 @@ function drawGround() {
 
 // Update game state
 function update() {
-    // Don't update if game is won
-    if (gameWon) return;
+    // Don't update if game is won or over
+    if (gameWon || gameOver) return;
 
     // Update background scroll (scaled)
     backgroundOffset += BASE_SCROLL_SPEED * SCALE;
@@ -683,6 +806,9 @@ function update() {
 
     // Update obstacles
     updateObstacles();
+
+    // Check for collisions
+    checkObstacleCollision();
 }
 
 // Draw title text in pixel art style
@@ -840,6 +966,69 @@ function drawPresent() {
         ctx.beginPath();
         ctx.arc(sparkleX, sparkleY, sparkleSize, 0, Math.PI * 2);
         ctx.fill();
+    }
+}
+
+// Draw game over screen
+function drawGameOverScreen() {
+    const elapsed = Date.now() - gameOverStart;
+    const fadeIn = Math.min(1, elapsed / 500);
+
+    // Semi-transparent overlay
+    ctx.fillStyle = `rgba(139, 0, 0, ${fadeIn * 0.85})`;
+    ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+    if (elapsed < 300) return;
+
+    const centerX = CANVAS_WIDTH / 2;
+    const centerY = CANVAS_HEIGHT / 2;
+
+    // Title: "GAME OVER"
+    const titleSize = Math.floor(48 * SCALE);
+    ctx.font = `bold ${titleSize}px monospace`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    // Shake effect
+    const shake = elapsed < 800 ? Math.sin(elapsed / 30) * 5 * SCALE : 0;
+
+    // Title shadow
+    ctx.fillStyle = '#000000';
+    ctx.fillText("💥 GAME OVER 💥", centerX + 3 * SCALE + shake, centerY - 40 * SCALE + 3 * SCALE);
+
+    // Title
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillText("💥 GAME OVER 💥", centerX + shake, centerY - 40 * SCALE);
+
+    // Subtitle
+    if (elapsed > 600) {
+        const subAlpha = Math.min(1, (elapsed - 600) / 400);
+        ctx.globalAlpha = subAlpha;
+
+        const subSize = Math.floor(24 * SCALE);
+        ctx.font = `bold ${subSize}px monospace`;
+        ctx.fillStyle = '#FFD700';
+        ctx.fillText("Du hast ein Hindernis getroffen!", centerX, centerY + 20 * SCALE);
+
+        // Distance traveled
+        ctx.font = `bold ${Math.floor(18 * SCALE)}px monospace`;
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillText(`Geschaffte Distanz: ${Math.floor(distanceTraveled)}m von ${TOTAL_DISTANCE}m`, centerX, centerY + 60 * SCALE);
+
+        ctx.globalAlpha = 1;
+    }
+
+    // Restart hint
+    if (elapsed > 1200) {
+        const hintAlpha = 0.5 + Math.sin(elapsed / 300) * 0.5;
+        ctx.globalAlpha = hintAlpha;
+
+        const hintSize = Math.floor(20 * SCALE);
+        ctx.font = `bold ${hintSize}px monospace`;
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillText("Drücke LEERTASTE zum Neustarten", centerX, centerY + 120 * SCALE);
+
+        ctx.globalAlpha = 1;
     }
 }
 
@@ -1119,6 +1308,11 @@ function render() {
     // Draw win screen if game is won
     if (gameWon) {
         drawWinScreen();
+    }
+
+    // Draw game over screen if game is over
+    if (gameOver) {
+        drawGameOverScreen();
     }
 }
 
