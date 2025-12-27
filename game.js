@@ -61,6 +61,16 @@ let gameOver = false;
 let gameOverStart = 0;
 let skierOnObstacle = false;
 
+// Speed boost state (fart boost!)
+let isBoosting = false;
+let boostStartTime = 0;
+const BOOST_DURATION = 800; // 0.8 seconds of boost
+const BOOST_COOLDOWN = 5000; // 5 seconds cooldown
+let lastBoostTime = -BOOST_COOLDOWN;
+let lastDKeyPress = 0;
+const DOUBLE_TAP_THRESHOLD = 300; // ms between taps to count as double-tap
+let fartClouds = [];
+
 // ============================================
 // OBSTACLES SYSTEM
 // Add your obstacle image filenames here!
@@ -68,6 +78,10 @@ let skierOnObstacle = false;
 // ============================================
 const OBSTACLE_FILES = [
     { file: 'couch.png', size: 2.0, rotation: 15 },
+    { file: 'lisa.png', size: 2.0, rotation: 20 },
+    { file: 'curry.png', size: 1.0, rotation: 15 },
+    { file: 'weizen.png', size: 1.0, rotation: 15 },
+
     // Example:
     // { file: 'rock.png', size: 1.0, rotation: 0 },
     // { file: 'snowman.png', size: 1.5, rotation: 0 },
@@ -81,8 +95,8 @@ const OBSTACLE_FILES = [
 
 // Obstacle settings
 const OBSTACLE_BASE_SIZE = 60; // Base size in pixels (will be scaled)
-const OBSTACLE_SPACING_MIN = 300; // Minimum distance between obstacles
-const OBSTACLE_SPACING_MAX = 600; // Maximum distance between obstacles
+const OBSTACLE_SPACING_MIN = 600; // Minimum distance between obstacles
+const OBSTACLE_SPACING_MAX = 1200; // Maximum distance between obstacles
 
 // Load obstacle images
 const obstacleData = [];
@@ -180,12 +194,12 @@ function checkCollisions() {
 }
 
 // Update obstacles
-function updateObstacles() {
+function updateObstacles(speedMultiplier = 1.0) {
     if (gameWon || gameOver) return;
 
     // Move obstacles with background
     obstacles.forEach(obstacle => {
-        obstacle.x -= BASE_SCROLL_SPEED * SCALE;
+        obstacle.x -= BASE_SCROLL_SPEED * SCALE * speedMultiplier;
     });
 
     // Remove off-screen obstacles
@@ -351,6 +365,12 @@ function restartGame() {
     skier.velocityY = 0;
     skier.isJumping = false;
     skierOnObstacle = false;
+    // Reset boost state
+    isBoosting = false;
+    boostStartTime = 0;
+    lastBoostTime = -BOOST_COOLDOWN;
+    lastDKeyPress = 0;
+    fartClouds = [];
 }
 
 document.addEventListener('keydown', (e) => {
@@ -370,6 +390,37 @@ document.addEventListener('keydown', (e) => {
             skier.isJumping = true;
             skierOnObstacle = false; // Leaving the obstacle
         }
+    }
+
+    // Double-tap 'D' for speed boost (fart boost!)
+    if (e.code === 'KeyD' && !gameOver && !gameWon) {
+        const now = Date.now();
+        const timeSinceLastPress = now - lastDKeyPress;
+
+        if (timeSinceLastPress < DOUBLE_TAP_THRESHOLD) {
+            // Double-tap detected!
+            const timeSinceLastBoost = now - lastBoostTime;
+            if (timeSinceLastBoost >= BOOST_COOLDOWN) {
+                // Activate boost!
+                isBoosting = true;
+                boostStartTime = now;
+                lastBoostTime = now;
+
+                // Create fart clouds (close to the butt!)
+                for (let i = 0; i < 10; i++) {
+                    fartClouds.push({
+                        x: skier.x - (5 + Math.random() * 10) * SCALE,
+                        y: skier.y - (25 + Math.random() * 15) * SCALE,
+                        size: (10 + Math.random() * 12) * SCALE,
+                        velocityX: -(0.3 + Math.random() * 0.5) * SCALE,
+                        velocityY: (Math.random() - 0.5) * 0.3 * SCALE,
+                        opacity: 1,
+                        lifetime: 0
+                    });
+                }
+            }
+        }
+        lastDKeyPress = now;
     }
 });
 
@@ -541,6 +592,30 @@ function drawSkier() {
 
     // Restore canvas state after rotation
     ctx.restore();
+}
+
+// Draw fart clouds (speed boost effect!)
+function drawFartClouds() {
+    fartClouds.forEach(cloud => {
+        ctx.save();
+        ctx.globalAlpha = cloud.opacity;
+
+        // Draw multiple overlapping circles for cloud effect
+        const cloudColors = ['#7CB342', '#9CCC65', '#AED581']; // Green fart colors
+
+        for (let i = 0; i < 3; i++) {
+            const offsetX = (Math.random() - 0.5) * cloud.size * 0.3;
+            const offsetY = (Math.random() - 0.5) * cloud.size * 0.3;
+            const circleSize = cloud.size * (0.7 + Math.random() * 0.3);
+
+            ctx.fillStyle = cloudColors[i % cloudColors.length];
+            ctx.beginPath();
+            ctx.arc(cloud.x + offsetX, cloud.y + offsetY, circleSize / 2, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        ctx.restore();
+    });
 }
 
 // Draw mountains (parallax background)
@@ -725,11 +800,30 @@ function update() {
     // Don't update if game is won or over
     if (gameWon || gameOver) return;
 
-    // Update background scroll (scaled)
-    backgroundOffset += BASE_SCROLL_SPEED * SCALE;
+    // Check boost state
+    const now = Date.now();
+    if (isBoosting && now - boostStartTime > BOOST_DURATION) {
+        isBoosting = false;
+    }
+
+    // Apply speed boost multiplier
+    const speedMultiplier = isBoosting ? 2.5 : 1.0;
+
+    // Update background scroll (scaled) with boost
+    backgroundOffset += BASE_SCROLL_SPEED * SCALE * speedMultiplier;
 
     // Update distance traveled
     distanceTraveled = Math.min(backgroundOffset / (PIXELS_PER_METER * SCALE), TOTAL_DISTANCE);
+
+    // Update fart clouds
+    fartClouds = fartClouds.filter(cloud => {
+        cloud.lifetime += 16; // Assuming ~60fps
+        cloud.x += cloud.velocityX;
+        cloud.y += cloud.velocityY;
+        cloud.opacity = Math.max(0, 1 - cloud.lifetime / 800);
+        cloud.size *= 1.02; // Grow slightly
+        return cloud.lifetime < 800; // Remove after 800ms
+    });
 
     // Show present when approaching the end
     if (distanceTraveled >= TOTAL_DISTANCE * 0.9 && !presentVisible) {
@@ -739,7 +833,7 @@ function update() {
 
     // Move present towards skier (scrolls with background)
     if (presentVisible) {
-        presentX -= BASE_SCROLL_SPEED * SCALE;
+        presentX -= BASE_SCROLL_SPEED * SCALE * speedMultiplier;
 
         // Check collision with present
         const presentSize = 200 * SCALE;
@@ -772,7 +866,7 @@ function update() {
     }
 
     // Update obstacles
-    updateObstacles();
+    updateObstacles(speedMultiplier);
 }
 
 // Draw title text in pixel art style
@@ -1184,6 +1278,58 @@ function drawWinScreen() {
     }
 }
 
+// Draw boost meter
+function drawBoostMeter() {
+    const padding = 20 * SCALE;
+    const meterWidth = 200 * SCALE;
+    const meterHeight = 15 * SCALE;
+    const meterX = padding;
+    const meterY = padding + 60 * SCALE; // Slightly below the top to avoid overlap
+
+    // Calculate boost cooldown progress
+    const now = Date.now();
+    const timeSinceBoost = now - lastBoostTime;
+    const cooldownProgress = Math.min(1, timeSinceBoost / BOOST_COOLDOWN);
+    const isReady = cooldownProgress >= 1;
+
+    // Draw label
+    ctx.font = `bold ${Math.floor(12 * SCALE)}px monospace`;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'bottom';
+
+    const label = isBoosting ? '🔥 BOOSTING! 🔥' : (isReady ? '💨 BOOST READY (DD) 💨' : '⏳ Boost Cooldown...');
+    ctx.fillStyle = isBoosting ? '#FF6B00' : (isReady ? '#4CAF50' : '#999999');
+    ctx.fillText(label, meterX, meterY - 5 * SCALE);
+
+    // Draw meter background
+    ctx.fillStyle = '#1A1A2E';
+    ctx.fillRect(meterX - 2 * SCALE, meterY - 2 * SCALE, meterWidth + 4 * SCALE, meterHeight + 4 * SCALE);
+
+    // Meter border
+    ctx.fillStyle = isReady ? '#4CAF50' : '#555555';
+    ctx.fillRect(meterX, meterY, meterWidth, meterHeight);
+
+    // Meter fill
+    if (isBoosting) {
+        // Show boost duration remaining
+        const boostProgress = 1 - (now - boostStartTime) / BOOST_DURATION;
+        const fillWidth = meterWidth * boostProgress;
+        ctx.fillStyle = '#FF6B00';
+        ctx.fillRect(meterX, meterY, fillWidth, meterHeight);
+    } else {
+        // Show cooldown progress
+        const fillWidth = meterWidth * cooldownProgress;
+        ctx.fillStyle = isReady ? '#66BB6A' : '#FFD700';
+        ctx.fillRect(meterX, meterY, fillWidth, meterHeight);
+    }
+
+    // Add shine effect
+    if (isReady || isBoosting) {
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+        ctx.fillRect(meterX, meterY, meterWidth * (isBoosting ? (1 - (now - boostStartTime) / BOOST_DURATION) : 1), meterHeight / 3);
+    }
+}
+
 // Draw progress bar and distance counter
 function drawProgressBar() {
     const padding = 20 * SCALE;
@@ -1260,11 +1406,17 @@ function render() {
     // Draw the present (if visible)
     drawPresent();
 
+    // Draw fart clouds (behind skier)
+    drawFartClouds();
+
     // Draw skier
     drawSkier();
 
     // Draw title
     drawTitle();
+
+    // Draw boost meter
+    drawBoostMeter();
 
     // Draw progress bar and distance counter
     drawProgressBar();
