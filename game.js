@@ -48,8 +48,14 @@ const COLORS = {
     snow: '#FFFFFF',
     ground: '#E8E8E8',
     groundLine: '#CCCCCC',
-    trees: '#228B22',
-    treeTrunk: '#8B4513',
+    trees: '#1B5E20',
+    treeDark: '#0D3B0D',
+    treeTrunk: '#5D4037',
+    star: '#FFD700',
+    ornamentRed: '#E53935',
+    ornamentBlue: '#1E88E5',
+    ornamentGold: '#FFC107',
+    treeSnow: '#FFFFFF',
     mountains: '#A0A0A0',
     mountainSnow: '#FFFFFF',
     // Skier colors
@@ -100,16 +106,16 @@ const mountains = [
 
 // Trees (move with ground) - base values, will be scaled when drawing
 const trees = [
-    { x: 100, size: 40 },
-    { x: 300, size: 50 },
-    { x: 500, size: 35 },
-    { x: 700, size: 45 },
-    { x: 900, size: 40 },
-    { x: 1100, size: 55 },
-    { x: 1300, size: 42 },
-    { x: 1500, size: 48 },
-    { x: 1700, size: 38 },
-    { x: 1900, size: 52 }
+    { x: 100, size: 70 },
+    { x: 300, size: 85 },
+    { x: 500, size: 65 },
+    { x: 700, size: 80 },
+    { x: 900, size: 75 },
+    { x: 1100, size: 90 },
+    { x: 1300, size: 72 },
+    { x: 1500, size: 82 },
+    { x: 1700, size: 68 },
+    { x: 1900, size: 88 }
 ];
 
 // Input handling
@@ -295,6 +301,7 @@ function drawSkier() {
 function drawMountains() {
     const parallaxOffset = backgroundOffset * 0.3;
     const wrapWidth = CANVAS_WIDTH + 400 * SCALE;
+    const slopeRadians = Math.atan(SLOPE_ANGLE);
 
     mountains.forEach(mountain => {
         const scaledX = mountain.x * SCALE;
@@ -305,34 +312,41 @@ function drawMountains() {
         if (mx < -scaledWidth) mx += wrapWidth;
         if (mx > CANVAS_WIDTH) mx -= wrapWidth;
 
-        // Mountains follow slope (with slight parallax offset)
-        const baseY = getGroundYAtX(mx) - 50 * SCALE;
+        // Mountains sit on the ground line
+        const baseY = getGroundYAtX(mx + scaledWidth / 2);
 
-        // Mountain body
+        // Save, translate and rotate to match slope
+        ctx.save();
+        ctx.translate(mx + scaledWidth / 2, baseY);
+        ctx.rotate(slopeRadians);
+
+        // Mountain body (drawn relative to rotated origin)
         ctx.fillStyle = COLORS.mountains;
         ctx.beginPath();
-        ctx.moveTo(mx, baseY);
-        ctx.lineTo(mx + scaledWidth / 2, baseY - scaledHeight);
-        ctx.lineTo(mx + scaledWidth, baseY);
+        ctx.moveTo(-scaledWidth / 2, 0);
+        ctx.lineTo(0, -scaledHeight);
+        ctx.lineTo(scaledWidth / 2, 0);
         ctx.closePath();
         ctx.fill();
 
         // Snow cap
         ctx.fillStyle = COLORS.mountainSnow;
         ctx.beginPath();
-        ctx.moveTo(mx + scaledWidth / 2 - 20 * SCALE, baseY - scaledHeight + 30 * SCALE);
-        ctx.lineTo(mx + scaledWidth / 2, baseY - scaledHeight);
-        ctx.lineTo(mx + scaledWidth / 2 + 20 * SCALE, baseY - scaledHeight + 30 * SCALE);
+        ctx.moveTo(-20 * SCALE, -scaledHeight + 30 * SCALE);
+        ctx.lineTo(0, -scaledHeight);
+        ctx.lineTo(20 * SCALE, -scaledHeight + 30 * SCALE);
         ctx.closePath();
         ctx.fill();
+
+        ctx.restore();
     });
 }
 
-// Draw trees
+// Draw trees (Christmas trees)
 function drawTrees() {
     const wrapWidth = CANVAS_WIDTH + 600 * SCALE;
 
-    trees.forEach(tree => {
+    trees.forEach((tree, index) => {
         const scaledX = tree.x * SCALE;
         const scaledSize = tree.size * SCALE;
 
@@ -340,18 +354,98 @@ function drawTrees() {
         if (tx < -scaledSize) tx += wrapWidth;
         if (tx > CANVAS_WIDTH) tx -= wrapWidth;
 
-        // Trees follow the slope
-        const baseY = getGroundYAtX(tx) - 50 * SCALE;
+        // Trees sit on the ground line
+        const baseY = getGroundYAtX(tx);
+        const centerX = tx + scaledSize / 2;
+        const treeHeight = scaledSize * 2;
 
         // Trunk
-        drawPixelRect(tx + scaledSize / 2 - 4 * SCALE, baseY - 12 * SCALE, 8 * SCALE, 16 * SCALE, COLORS.treeTrunk);
+        const trunkWidth = 8 * SCALE;
+        const trunkHeight = 14 * SCALE;
+        drawPixelRect(centerX - trunkWidth / 2, baseY - trunkHeight, trunkWidth, trunkHeight, COLORS.treeTrunk);
 
-        // Tree layers (pixel triangle)
-        for (let i = 0; i < 3; i++) {
-            const layerWidth = scaledSize - i * 8 * SCALE;
-            const layerHeight = 16 * SCALE;
-            const layerY = baseY - 20 * SCALE - i * 12 * SCALE;
-            drawPixelRect(tx + scaledSize / 2 - layerWidth / 2, layerY, layerWidth, layerHeight, COLORS.trees);
+        // Pointy tree layers (5 overlapping triangles)
+        const layers = 5;
+        for (let i = 0; i < layers; i++) {
+            const layerProgress = i / layers;
+            const layerWidth = scaledSize * (1 - layerProgress * 0.6);
+            const layerHeight = treeHeight / layers + 8 * SCALE;
+            const layerY = baseY - trunkHeight - (i * treeHeight / layers);
+
+            // Main triangle
+            ctx.fillStyle = COLORS.trees;
+            ctx.beginPath();
+            ctx.moveTo(centerX, layerY - layerHeight);
+            ctx.lineTo(centerX - layerWidth / 2, layerY);
+            ctx.lineTo(centerX + layerWidth / 2, layerY);
+            ctx.closePath();
+            ctx.fill();
+
+            // Dark edge for depth
+            ctx.fillStyle = COLORS.treeDark;
+            ctx.beginPath();
+            ctx.moveTo(centerX, layerY - layerHeight);
+            ctx.lineTo(centerX - layerWidth / 2, layerY);
+            ctx.lineTo(centerX - layerWidth / 3, layerY);
+            ctx.closePath();
+            ctx.fill();
+
+            // Snow on branches
+            if (i < layers - 1) {
+                ctx.fillStyle = COLORS.treeSnow;
+                const snowY = layerY - layerHeight * 0.3;
+                ctx.beginPath();
+                ctx.moveTo(centerX - layerWidth * 0.3, snowY);
+                ctx.lineTo(centerX, layerY - layerHeight + 4 * SCALE);
+                ctx.lineTo(centerX + layerWidth * 0.3, snowY);
+                ctx.closePath();
+                ctx.fill();
+            }
+        }
+
+        // Star on top
+        const starY = baseY - trunkHeight - treeHeight - 4 * SCALE;
+        const starSize = 6 * SCALE;
+        ctx.fillStyle = COLORS.star;
+        // Draw star shape
+        ctx.beginPath();
+        for (let i = 0; i < 5; i++) {
+            const angle = (i * 4 * Math.PI / 5) - Math.PI / 2;
+            const r = i === 0 ? starSize : starSize;
+            const px = centerX + Math.cos(angle) * starSize;
+            const py = starY + Math.sin(angle) * starSize;
+            if (i === 0) ctx.moveTo(px, py);
+            else ctx.lineTo(px, py);
+            // Inner point
+            const innerAngle = angle + Math.PI / 5;
+            const ipx = centerX + Math.cos(innerAngle) * (starSize * 0.4);
+            const ipy = starY + Math.sin(innerAngle) * (starSize * 0.4);
+            ctx.lineTo(ipx, ipy);
+        }
+        ctx.closePath();
+        ctx.fill();
+
+        // Ornaments (baubles)
+        const ornamentColors = [COLORS.ornamentRed, COLORS.ornamentBlue, COLORS.ornamentGold];
+        const seed = index * 137; // Pseudo-random seed per tree
+        for (let i = 0; i < 6; i++) {
+            const layer = Math.floor(i / 2);
+            const layerProgress = (layer + 1) / layers;
+            const maxWidth = scaledSize * (1 - layerProgress * 0.5) * 0.4;
+            const ornX = centerX + ((((seed + i * 73) % 100) / 50) - 1) * maxWidth;
+            const ornY = baseY - trunkHeight - ((layer + 0.5) * treeHeight / layers);
+            const ornSize = 3 * SCALE;
+
+            ctx.fillStyle = ornamentColors[(seed + i) % 3];
+            ctx.beginPath();
+            ctx.arc(ornX, ornY, ornSize, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Shine on ornament
+            ctx.fillStyle = 'rgba(255,255,255,0.5)';
+            ctx.beginPath();
+            ctx.arc(ornX - ornSize * 0.3, ornY - ornSize * 0.3, ornSize * 0.3, 0, Math.PI * 2);
+            ctx.fill();
         }
     });
 }
@@ -403,6 +497,72 @@ function update() {
     }
 }
 
+// Draw title text in pixel art style
+function drawTitle() {
+    const title = "Lisa's Christmas Game";
+    const fontSize = Math.floor(32 * SCALE);
+    const padding = 20 * SCALE;
+
+    // Set pixel art font style
+    ctx.font = `bold ${fontSize}px monospace`;
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'top';
+
+    const x = CANVAS_WIDTH - padding;
+    const y = padding;
+
+    // Draw pixel shadow layers for depth
+    ctx.fillStyle = '#1A1A2E';
+    ctx.fillText(title, x + 4 * SCALE, y + 4 * SCALE);
+
+    // Dark green outline
+    ctx.fillStyle = '#0D3B0D';
+    for (let ox = -2; ox <= 2; ox++) {
+        for (let oy = -2; oy <= 2; oy++) {
+            if (ox !== 0 || oy !== 0) {
+                ctx.fillText(title, x + ox * SCALE, y + oy * SCALE);
+            }
+        }
+    }
+
+    // Red and green gradient effect (alternating letters)
+    const letters = title.split('');
+    let currentX = x;
+
+    // Measure total width first
+    const totalWidth = ctx.measureText(title).width;
+    currentX = x - totalWidth;
+
+    letters.forEach((letter, i) => {
+        // Alternate between Christmas colors
+        if (i % 2 === 0) {
+            ctx.fillStyle = '#E53935'; // Red
+        } else {
+            ctx.fillStyle = '#2E7D32'; // Green
+        }
+
+        // Special gold for apostrophe and capital letters
+        if (letter === "'" || letter === 'L' || letter === 'C' || letter === 'G') {
+            ctx.fillStyle = '#FFD700'; // Gold
+        }
+
+        ctx.textAlign = 'left';
+        ctx.fillText(letter, currentX, y);
+        currentX += ctx.measureText(letter).width;
+    });
+
+    // Add snow decoration on top
+    ctx.fillStyle = '#FFFFFF';
+    const snowY = y - 2 * SCALE;
+    for (let i = 0; i < 8; i++) {
+        const snowX = x - totalWidth + (i * totalWidth / 7);
+        const snowSize = (2 + (i % 3)) * SCALE;
+        ctx.beginPath();
+        ctx.arc(snowX, snowY + Math.sin(i * 0.8) * 3 * SCALE, snowSize, 0, Math.PI * 2);
+        ctx.fill();
+    }
+}
+
 // Render game
 function render() {
     // Clear canvas with sky color
@@ -416,6 +576,9 @@ function render() {
 
     // Draw skier
     drawSkier();
+
+    // Draw title
+    drawTitle();
 }
 
 // Game loop
