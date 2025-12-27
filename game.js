@@ -1284,7 +1284,7 @@ function drawBoostMeter() {
     const meterWidth = 200 * SCALE;
     const meterHeight = 15 * SCALE;
     const meterX = padding;
-    const meterY = padding + 60 * SCALE; // Slightly below the top to avoid overlap
+    const meterY = padding + 30 * SCALE; // Slightly below the top to avoid overlap
 
     // Calculate boost cooldown progress
     const now = Date.now();
