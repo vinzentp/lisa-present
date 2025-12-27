@@ -366,15 +366,17 @@ function drawTrees() {
         if (tx < -scaledSize) tx += wrapWidth;
         if (tx > CANVAS_WIDTH) tx -= wrapWidth;
 
-        // Trees sit on the ground line
-        const baseY = getGroundYAtX(tx);
-        const centerX = tx + scaledSize / 2;
+        // Trees sit on the ground line (offset down to align with snow)
+        const baseY = getGroundYAtX(tx) + 12 * SCALE;
+        // Round centerX to prevent trunk flickering
+        const centerX = Math.round(tx + scaledSize / 2);
         const treeHeight = scaledSize * 2;
 
-        // Trunk
+        // Trunk (use fillRect directly to avoid pixel snapping issues)
         const trunkWidth = 8 * SCALE;
         const trunkHeight = 14 * SCALE;
-        drawPixelRect(centerX - trunkWidth / 2, baseY - trunkHeight, trunkWidth, trunkHeight, COLORS.treeTrunk);
+        ctx.fillStyle = COLORS.treeTrunk;
+        ctx.fillRect(Math.round(centerX - trunkWidth / 2), Math.round(baseY - trunkHeight), Math.round(trunkWidth), Math.round(trunkHeight));
 
         // Pointy tree layers (5 overlapping triangles)
         const layers = 5;
