@@ -11,6 +11,12 @@ let CANVAS_HEIGHT = window.innerHeight;
 let SCALE = Math.min(CANVAS_WIDTH / BASE_WIDTH, CANVAS_HEIGHT / BASE_HEIGHT);
 let GROUND_Y = CANVAS_HEIGHT - (80 * SCALE);
 let PIXEL_SIZE = Math.max(4, Math.floor(4 * SCALE));
+const SLOPE_ANGLE = 0.20;  // Slope steepness (rise/run) - 20% grade
+
+// Get ground Y at a specific X position (for slope)
+function getGroundYAtX(xPos) {
+    return GROUND_Y - (CANVAS_WIDTH / 2 - xPos) * SLOPE_ANGLE;
+}
 
 canvas.width = CANVAS_WIDTH;
 canvas.height = CANVAS_HEIGHT;
@@ -26,7 +32,8 @@ function resizeCanvas() {
     canvas.height = CANVAS_HEIGHT;
 
     // Update skier for new scale
-    skier.y = GROUND_Y;
+    skier.x = 150 * SCALE;
+    skier.y = getGroundYAtX(skier.x);
     skier.width = 20 * PIXEL_SIZE;
     skier.height = 22 * PIXEL_SIZE;
     skier.jumpPower = -12 * SCALE;
@@ -68,7 +75,7 @@ const COLORS = {
 // Skier state
 const skier = {
     x: 150 * SCALE,
-    y: CANVAS_HEIGHT - (80 * SCALE),
+    y: getGroundYAtX(150 * SCALE),
     width: 20 * PIXEL_SIZE,
     height: 22 * PIXEL_SIZE,
     velocityY: 0,
@@ -144,8 +151,23 @@ function drawPixel(baseX, baseY, px, py, color) {
 function drawSkier() {
     const s = PIXEL_SIZE;
     const spriteHeight = 23;  // Total height including boots and skis
-    const x = skier.x;
-    const y = skier.y - (spriteHeight * s);
+    const spriteWidth = 20;
+
+    // Save canvas state for rotation
+    ctx.save();
+
+    // Translate to skier's foot position (pivot point for rotation)
+    const pivotX = skier.x + (spriteWidth / 2) * s;
+    const pivotY = skier.y;
+    ctx.translate(pivotX, pivotY);
+
+    // Rotate to match slope
+    const slopeRadians = Math.atan(SLOPE_ANGLE);
+    ctx.rotate(slopeRadians);
+
+    // Offset for drawing (relative to pivot)
+    const x = -(spriteWidth / 2) * s;
+    const y = -(spriteHeight * s);
 
     // Color mapping for sprite
     const C = {
@@ -264,6 +286,9 @@ function drawSkier() {
 
     // Update skier height for collision detection
     skier.height = spriteHeight * s / SCALE;
+
+    // Restore canvas state after rotation
+    ctx.restore();
 }
 
 // Draw mountains (parallax background)
@@ -280,7 +305,8 @@ function drawMountains() {
         if (mx < -scaledWidth) mx += wrapWidth;
         if (mx > CANVAS_WIDTH) mx -= wrapWidth;
 
-        const baseY = GROUND_Y - 50 * SCALE;
+        // Mountains follow slope (with slight parallax offset)
+        const baseY = getGroundYAtX(mx) - 50 * SCALE;
 
         // Mountain body
         ctx.fillStyle = COLORS.mountains;
@@ -314,7 +340,8 @@ function drawTrees() {
         if (tx < -scaledSize) tx += wrapWidth;
         if (tx > CANVAS_WIDTH) tx -= wrapWidth;
 
-        const baseY = GROUND_Y - 50 * SCALE;
+        // Trees follow the slope
+        const baseY = getGroundYAtX(tx) - 50 * SCALE;
 
         // Trunk
         drawPixelRect(tx + scaledSize / 2 - 4 * SCALE, baseY - 12 * SCALE, 8 * SCALE, 16 * SCALE, COLORS.treeTrunk);
@@ -329,16 +356,25 @@ function drawTrees() {
     });
 }
 
-// Draw ground
+// Draw ground (sloped)
 function drawGround() {
-    // Snow ground
-    drawPixelRect(0, GROUND_Y, CANVAS_WIDTH, CANVAS_HEIGHT - GROUND_Y, COLORS.snow);
+    // Draw sloped snow ground as a filled polygon
+    ctx.fillStyle = COLORS.snow;
+    ctx.beginPath();
+    ctx.moveTo(0, getGroundYAtX(0));
+    ctx.lineTo(CANVAS_WIDTH, getGroundYAtX(CANVAS_WIDTH));
+    ctx.lineTo(CANVAS_WIDTH, CANVAS_HEIGHT);
+    ctx.lineTo(0, CANVAS_HEIGHT);
+    ctx.closePath();
+    ctx.fill();
 
-    // Ground line with texture
+    // Ground line with texture (sloped)
     for (let i = 0; i < CANVAS_WIDTH; i += PIXEL_SIZE * 2) {
+        const groundYHere = getGroundYAtX(i);
         const offset = (i + backgroundOffset) % (PIXEL_SIZE * 4);
         const shade = offset < PIXEL_SIZE * 2 ? COLORS.groundLine : COLORS.ground;
-        drawPixelRect(i, GROUND_Y, PIXEL_SIZE * 2, PIXEL_SIZE, shade);
+        ctx.fillStyle = shade;
+        ctx.fillRect(i, groundYHere, PIXEL_SIZE * 2, PIXEL_SIZE);
     }
 }
 
@@ -347,17 +383,23 @@ function update() {
     // Update background scroll (scaled)
     backgroundOffset += BASE_SCROLL_SPEED * SCALE;
 
+    // Get ground level at skier's position
+    const groundAtSkier = getGroundYAtX(skier.x + 10 * SCALE);
+
     // Update skier physics
     if (skier.isJumping) {
         skier.velocityY += skier.gravity;
         skier.y += skier.velocityY;
 
-        // Land on ground
-        if (skier.y >= GROUND_Y) {
-            skier.y = GROUND_Y;
+        // Land on ground (slope)
+        if (skier.y >= groundAtSkier) {
+            skier.y = groundAtSkier;
             skier.velocityY = 0;
             skier.isJumping = false;
         }
+    } else {
+        // Keep skier on the slope when not jumping
+        skier.y = groundAtSkier;
     }
 }
 
