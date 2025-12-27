@@ -44,7 +44,7 @@ function resizeCanvas() {
     skier.y = getGroundYAtX(skier.x);
     skier.width = 20 * PIXEL_SIZE;
     skier.height = 22 * PIXEL_SIZE;
-    skier.jumpPower = -6 * SCALE;
+    skier.jumpPower = -7 * SCALE;
     skier.gravity = 0.25 * SCALE;
 }
 
@@ -59,8 +59,6 @@ let gameWon = false;
 let winAnimationStart = 0;
 let gameOver = false;
 let gameOverStart = 0;
-
-// Obstacle sliding state
 let skierOnObstacle = false;
 
 // ============================================
@@ -125,93 +123,59 @@ function spawnObstacle() {
 }
 
 // Check collision between skier and obstacles
-// Uses perpendicular distance between parallel lines (skis and obstacle top)
-function checkObstacleCollision() {
-    if (gameOver || gameWon) return;
+function checkCollisions() {
+    if (gameWon || gameOver) return;
 
-    // Slope geometry
-    const slopeAngle = SLOPE_ANGLE;
-    const slopeFactor = Math.sqrt(slopeAngle * slopeAngle + 1); // For perpendicular distance calc
+    const s = PIXEL_SIZE;
+    const spriteWidth = 20;
+    const bodyHeight = 17;
 
-    // Thresholds (perpendicular distance)
-    const landingThreshold = 12 * SCALE;   // Above this: normal falling physics
-    const slidingBuffer = 3 * SCALE;       // Maintain this distance when sliding
-    const collisionThreshold = -8 * SCALE; // Below this: game over
-
-    let landOnObstacle = null;
-    let nowOnObstacle = false;
+    // Skier hitbox (smaller than visual for fair gameplay)
+    const skierLeft = skier.x + 4 * s;
+    const skierRight = skier.x + (spriteWidth - 4) * s;
+    const skierBottom = skier.y;
+    const skierTop = skier.y - bodyHeight * s;
 
     for (const obstacle of obstacles) {
-        // Calculate obstacle dimensions maintaining aspect ratio
+        const groundY = getGroundYAtX(obstacle.x);
         const img = obstacle.image;
         const aspectRatio = img.naturalWidth / img.naturalHeight || 1;
-        let obsWidth, obsHeight;
+
+        let drawWidth, drawHeight;
         if (aspectRatio >= 1) {
-            obsWidth = obstacle.size;
-            obsHeight = obstacle.size / aspectRatio;
+            drawWidth = obstacle.size;
+            drawHeight = obstacle.size / aspectRatio;
         } else {
-            obsHeight = obstacle.size;
-            obsWidth = obstacle.size * aspectRatio;
+            drawHeight = obstacle.size;
+            drawWidth = obstacle.size * aspectRatio;
         }
 
-        // Check horizontal overlap (x-axis)
-        const skierLeft = skier.x;
-        const skierRight = skier.x + skier.width;
-        const obsLeft = obstacle.x - obsWidth / 2;
-        const obsRight = obstacle.x + obsWidth / 2;
-        const padding = 5 * SCALE;
-        if (skierRight <= obsLeft + padding || skierLeft >= obsRight - padding) {
-            continue; // No horizontal overlap
-        }
+        // Obstacle hitbox (centered on ground)
+        const obstacleLeft = obstacle.x - drawWidth / 2;
+        const obstacleRight = obstacle.x + drawWidth / 2;
+        const obstacleTop = groundY - drawHeight;
+        const obstacleBottom = groundY;
 
-        // Obstacle top is a line parallel to the slope
-        // Calculate Y of this line at the obstacle's x position
-        const obsGroundY = getGroundYAtX(obstacle.x);
-        const obsTopY = obsGroundY - obsHeight;
+        // Check horizontal overlap
+        const horizontalOverlap = skierRight > obstacleLeft && skierLeft < obstacleRight;
 
-        // Calculate Y of obstacle top line at skier's x position
-        // (since both lines are parallel to slope with angle -slopeAngle)
-        const lineYAtSkierX = obsTopY - slopeAngle * (skier.x - obstacle.x);
+        // Check if skier is at obstacle height
+        const verticalOverlap = skierBottom > obstacleTop && skierTop < obstacleBottom;
 
-        // Perpendicular distance from skier's feet to obstacle top line
-        // Positive = skier above line, Negative = skier below line
-        const perpDistance = (lineYAtSkierX - skier.y) / slopeFactor;
+        if (horizontalOverlap && verticalOverlap) {
+            // Check if skier jumped high enough to clear the obstacle
+            const clearanceHeight = obstacleTop + drawHeight * 0.3; // Need to clear 70% of obstacle height
 
-        if (perpDistance > landingThreshold) {
-            // Far above obstacle - normal falling physics, no interaction yet
-            continue;
-        } else if (perpDistance >= collisionThreshold) {
-            // In the landing/sliding zone
-            // Only land if: falling (velocityY > 0) OR already on an obstacle
-            if (skier.velocityY > 0 || skierOnObstacle) {
-                // Track the highest obstacle to land on
-                if (landOnObstacle === null || obsTopY < landOnObstacle.topY) {
-                    landOnObstacle = {
-                        obsX: obstacle.x,
-                        topY: obsTopY
-                    };
-                }
-                nowOnObstacle = true;
+            if (skierBottom <= clearanceHeight) {
+                // Successfully jumping over!
+                continue;
+            } else {
+                // Collision - game over!
+                gameOver = true;
+                gameOverStart = Date.now();
+                return;
             }
-            // If going up (velocityY <= 0) and not on obstacle, let skier pass
-        } else {
-            // Below collision threshold - front collision!
-            gameOver = true;
-            gameOverStart = Date.now();
-            return;
         }
-    }
-
-    // Update obstacle state
-    skierOnObstacle = nowOnObstacle;
-
-    // If landing on obstacle, set skier position to maintain slidingBuffer distance
-    if (landOnObstacle !== null) {
-        // Calculate where skier.y should be to maintain slidingBuffer perpendicular distance
-        const lineYAtSkierX = landOnObstacle.topY - slopeAngle * (skier.x - landOnObstacle.obsX);
-        skier.y = lineYAtSkierX - slidingBuffer * slopeFactor;
-        skier.velocityY = 0;
-        skier.isJumping = true;
     }
 }
 
@@ -235,6 +199,9 @@ function updateObstacles() {
             nextObstacleDistance = distanceInPixels + OBSTACLE_SPACING_MIN + Math.random() * (OBSTACLE_SPACING_MAX - OBSTACLE_SPACING_MIN);
         }
     }
+
+    // Check for collisions with obstacles
+    checkCollisions();
 }
 
 // Draw obstacles
@@ -329,7 +296,7 @@ const skier = {
     height: 22 * PIXEL_SIZE,
     velocityY: 0,
     isJumping: false,
-    jumpPower: -6 * SCALE,
+    jumpPower: -7 * SCALE,
     gravity: 0.25 * SCALE
 };
 
@@ -806,9 +773,6 @@ function update() {
 
     // Update obstacles
     updateObstacles();
-
-    // Check for collisions
-    checkObstacleCollision();
 }
 
 // Draw title text in pixel art style
