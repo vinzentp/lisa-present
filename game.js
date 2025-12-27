@@ -44,8 +44,8 @@ function resizeCanvas() {
     skier.y = getGroundYAtX(skier.x);
     skier.width = 20 * PIXEL_SIZE;
     skier.height = 22 * PIXEL_SIZE;
-    skier.jumpPower = -12 * SCALE;
-    skier.gravity = 0.5 * SCALE;
+    skier.jumpPower = -6 * SCALE;
+    skier.gravity = 0.25 * SCALE;
 }
 
 window.addEventListener('resize', resizeCanvas);
@@ -233,8 +233,8 @@ const skier = {
     height: 22 * PIXEL_SIZE,
     velocityY: 0,
     isJumping: false,
-    jumpPower: -12 * SCALE,
-    gravity: 0.5 * SCALE
+    jumpPower: -6 * SCALE,
+    gravity: 0.25 * SCALE
 };
 
 // Background elements
