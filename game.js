@@ -143,7 +143,7 @@ function drawPixel(baseX, baseY, px, py, color) {
 // Draw the skier (pixel art style) - detailed sprite
 function drawSkier() {
     const s = PIXEL_SIZE;
-    const spriteHeight = 22;  // Total height including skis
+    const spriteHeight = 23;  // Total height including boots and skis
     const x = skier.x;
     const y = skier.y - (spriteHeight * s);
 
@@ -169,7 +169,7 @@ function drawSkier() {
         '.': null // transparent
     };
 
-    // Skier sprite - crouched skiing pose (19 rows x 20 cols)
+    // Skier sprite - crouched skiing pose (20 rows x 20 cols)
     // Facing right, leaning forward, poles behind (skis drawn separately)
     const sprite = [
         '........hHHH........',  // 0  helmet top
@@ -190,7 +190,8 @@ function drawSkier() {
         '......pPP..PPp......',  // 15 legs apart
         '......PP....PP......',  // 16 legs
         '.....BP......PB.....',  // 17 lower legs
-        '.....BB......BB.....',  // 18 boots
+        '.....BB......BB.....',  // 18 boots upper
+        '.....BB......BB.....',  // 19 boots lower (connects to skis)
     ];
 
     // Draw the sprite
@@ -204,38 +205,45 @@ function drawSkier() {
         }
     }
 
+    // Draw ski bindings (connect boots to skis)
+    // Left binding
+    drawPixel(x, y, 5, 20, COLORS.boots);
+    drawPixel(x, y, 6, 20, COLORS.boots);
+    // Right binding
+    drawPixel(x, y, 13, 20, COLORS.boots);
+    drawPixel(x, y, 14, 20, COLORS.boots);
+
     // Draw long skis extending in front and behind
-    const skiY = y + 19 * s;  // Just below boots
     const skiLength = 18;     // Length of ski in pixels
     const skiBackLength = 6;  // How far ski extends behind boot
 
     // Left ski (under left boot at col 5-6)
     const leftBootX = 5;
     // Ski tip (curved up at front)
-    drawPixel(x, y, leftBootX - skiBackLength + skiLength + 2, 18, COLORS.skiTip);
-    drawPixel(x, y, leftBootX - skiBackLength + skiLength + 1, 19, COLORS.skiTip);
+    drawPixel(x, y, leftBootX - skiBackLength + skiLength + 2, 19, COLORS.skiTip);
+    drawPixel(x, y, leftBootX - skiBackLength + skiLength + 1, 20, COLORS.skiTip);
     // Main ski body
     for (let i = 0; i < skiLength; i++) {
         const skiCol = leftBootX - skiBackLength + i;
-        drawPixel(x, y, skiCol, 20, COLORS.skiTop);
-        drawPixel(x, y, skiCol, 21, COLORS.skiBase);
+        drawPixel(x, y, skiCol, 21, COLORS.skiTop);
+        drawPixel(x, y, skiCol, 22, COLORS.skiBase);
     }
     // Ski tail
-    drawPixel(x, y, leftBootX - skiBackLength - 1, 21, COLORS.skiBase);
+    drawPixel(x, y, leftBootX - skiBackLength - 1, 22, COLORS.skiBase);
 
     // Right ski (under right boot at col 13-14)
     const rightBootX = 13;
     // Ski tip (curved up at front)
-    drawPixel(x, y, rightBootX - skiBackLength + skiLength + 2, 18, COLORS.skiTip);
-    drawPixel(x, y, rightBootX - skiBackLength + skiLength + 1, 19, COLORS.skiTip);
+    drawPixel(x, y, rightBootX - skiBackLength + skiLength + 2, 19, COLORS.skiTip);
+    drawPixel(x, y, rightBootX - skiBackLength + skiLength + 1, 20, COLORS.skiTip);
     // Main ski body
     for (let i = 0; i < skiLength; i++) {
         const skiCol = rightBootX - skiBackLength + i;
-        drawPixel(x, y, skiCol, 20, COLORS.skiTop);
-        drawPixel(x, y, skiCol, 21, COLORS.skiBase);
+        drawPixel(x, y, skiCol, 21, COLORS.skiTop);
+        drawPixel(x, y, skiCol, 22, COLORS.skiBase);
     }
     // Ski tail
-    drawPixel(x, y, rightBootX - skiBackLength - 1, 21, COLORS.skiBase);
+    drawPixel(x, y, rightBootX - skiBackLength - 1, 22, COLORS.skiBase);
 
     // Draw ski poles (angled behind the skier)
     // Left pole
