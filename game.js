@@ -65,6 +65,7 @@ let skierOnObstacle = false;
 let isBoosting = false;
 let boostStartTime = 0;
 const BOOST_DURATION = 800; // 0.8 seconds of boost
+const BOOST_DECEL_DURATION = 400; // 0.4 seconds to decelerate smoothly
 const BOOST_COOLDOWN = 5000; // 5 seconds cooldown
 let lastBoostTime = -BOOST_COOLDOWN;
 let lastDKeyPress = 0;
@@ -802,12 +803,21 @@ function update() {
 
     // Check boost state
     const now = Date.now();
-    if (isBoosting && now - boostStartTime > BOOST_DURATION) {
+    const timeSinceBoostStart = now - boostStartTime;
+
+    if (isBoosting && timeSinceBoostStart > BOOST_DURATION) {
         isBoosting = false;
     }
 
-    // Apply speed boost multiplier
-    const speedMultiplier = isBoosting ? 2.5 : 1.0;
+    // Apply speed boost multiplier with smooth deceleration
+    let speedMultiplier = 1.0;
+    if (isBoosting) {
+        speedMultiplier = 2.5;
+    } else if (timeSinceBoostStart < BOOST_DURATION + BOOST_DECEL_DURATION) {
+        // Smooth deceleration phase
+        const decelProgress = (timeSinceBoostStart - BOOST_DURATION) / BOOST_DECEL_DURATION;
+        speedMultiplier = 2.5 - (1.5 * decelProgress); // Smoothly go from 2.5 to 1.0
+    }
 
     // Update background scroll (scaled) with boost
     backgroundOffset += BASE_SCROLL_SPEED * SCALE * speedMultiplier;
