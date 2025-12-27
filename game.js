@@ -50,6 +50,14 @@ function resizeCanvas() {
 
 window.addEventListener('resize', resizeCanvas);
 
+// Present state
+let presentVisible = false;
+let presentX = 0;
+
+// Game end state
+let gameWon = false;
+let winAnimationStart = 0;
+
 // Colors (pixel art palette)
 const COLORS = {
     sky: '#87CEEB',
@@ -83,7 +91,13 @@ const COLORS = {
     poleGrip: '#2B2D42',
     skiBase: '#F1FAEE',
     skiTop: '#E63946',
-    skiTip: '#1D3557'
+    skiTip: '#1D3557',
+    // Present colors
+    presentRed: '#C41E3A',
+    presentRedDark: '#8B0000',
+    presentRedLight: '#FF4444',
+    ribbon: '#FFD700',
+    ribbonDark: '#DAA520'
 };
 
 // Skier state
@@ -101,6 +115,11 @@ const skier = {
 // Background elements
 let backgroundOffset = 0;
 const BASE_SCROLL_SPEED = 5;
+
+// Distance tracking (in meters)
+const TOTAL_DISTANCE = 10; // Total distance to the present in meters
+const PIXELS_PER_METER = 10; // How many pixels equal one meter
+let distanceTraveled = 0;
 
 // Mountains (parallax - slower) - base values, will be scaled when drawing
 const mountains = [
@@ -488,8 +507,35 @@ function drawGround() {
 
 // Update game state
 function update() {
+    // Don't update if game is won
+    if (gameWon) return;
+
     // Update background scroll (scaled)
     backgroundOffset += BASE_SCROLL_SPEED * SCALE;
+
+    // Update distance traveled
+    distanceTraveled = Math.min(backgroundOffset / (PIXELS_PER_METER * SCALE), TOTAL_DISTANCE);
+
+    // Show present when approaching the end
+    if (distanceTraveled >= TOTAL_DISTANCE * 0.9 && !presentVisible) {
+        presentVisible = true;
+        presentX = CANVAS_WIDTH + 300 * SCALE; // Start off-screen to the right
+    }
+
+    // Move present towards skier (scrolls with background)
+    if (presentVisible) {
+        presentX -= BASE_SCROLL_SPEED * SCALE;
+
+        // Check collision with present
+        const presentSize = 200 * SCALE;
+        const skierRight = skier.x + skier.width;
+        const presentLeft = presentX - presentSize / 2;
+
+        if (skierRight >= presentLeft && skier.x <= presentX + presentSize / 2) {
+            gameWon = true;
+            winAnimationStart = Date.now();
+        }
+    }
 
     // Get ground level at skier's position
     const groundAtSkier = getGroundYAtX(skier.x + 10 * SCALE);
@@ -577,6 +623,345 @@ function drawTitle() {
     }
 }
 
+// Draw the huge present box
+function drawPresent() {
+    if (!presentVisible) return;
+
+    const presentSize = 200 * SCALE;
+    const groundY = getGroundYAtX(presentX);
+    const x = presentX - presentSize / 2;
+    const y = groundY - presentSize;
+
+    // Main box body
+    ctx.fillStyle = COLORS.presentRed;
+    ctx.fillRect(x, y, presentSize, presentSize);
+
+    // Dark side for 3D effect
+    ctx.fillStyle = COLORS.presentRedDark;
+    ctx.fillRect(x, y, presentSize * 0.1, presentSize);
+
+    // Light top for 3D effect
+    ctx.fillStyle = COLORS.presentRedLight;
+    ctx.fillRect(x, y, presentSize, presentSize * 0.1);
+
+    // Vertical ribbon
+    const ribbonWidth = presentSize * 0.15;
+    ctx.fillStyle = COLORS.ribbon;
+    ctx.fillRect(x + presentSize / 2 - ribbonWidth / 2, y, ribbonWidth, presentSize);
+
+    // Ribbon shadow
+    ctx.fillStyle = COLORS.ribbonDark;
+    ctx.fillRect(x + presentSize / 2 - ribbonWidth / 2, y, ribbonWidth * 0.2, presentSize);
+
+    // Horizontal ribbon
+    ctx.fillStyle = COLORS.ribbon;
+    ctx.fillRect(x, y + presentSize / 2 - ribbonWidth / 2, presentSize, ribbonWidth);
+
+    // Horizontal ribbon shadow
+    ctx.fillStyle = COLORS.ribbonDark;
+    ctx.fillRect(x, y + presentSize / 2 - ribbonWidth / 2, presentSize, ribbonWidth * 0.2);
+
+    // Bow on top
+    const bowSize = presentSize * 0.3;
+    const bowX = x + presentSize / 2;
+    const bowY = y - bowSize * 0.3;
+
+    // Bow loops
+    ctx.fillStyle = COLORS.ribbon;
+    ctx.beginPath();
+    ctx.ellipse(bowX - bowSize * 0.4, bowY, bowSize * 0.4, bowSize * 0.25, -0.3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(bowX + bowSize * 0.4, bowY, bowSize * 0.4, bowSize * 0.25, 0.3, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Bow center knot
+    ctx.fillStyle = COLORS.ribbonDark;
+    ctx.beginPath();
+    ctx.arc(bowX, bowY + bowSize * 0.1, bowSize * 0.2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = COLORS.ribbon;
+    ctx.beginPath();
+    ctx.arc(bowX, bowY + bowSize * 0.1, bowSize * 0.15, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Bow tails
+    ctx.fillStyle = COLORS.ribbon;
+    ctx.beginPath();
+    ctx.moveTo(bowX - bowSize * 0.15, bowY + bowSize * 0.2);
+    ctx.lineTo(bowX - bowSize * 0.4, bowY + bowSize * 0.6);
+    ctx.lineTo(bowX - bowSize * 0.2, bowY + bowSize * 0.5);
+    ctx.lineTo(bowX, bowY + bowSize * 0.25);
+    ctx.closePath();
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(bowX + bowSize * 0.15, bowY + bowSize * 0.2);
+    ctx.lineTo(bowX + bowSize * 0.4, bowY + bowSize * 0.6);
+    ctx.lineTo(bowX + bowSize * 0.2, bowY + bowSize * 0.5);
+    ctx.lineTo(bowX, bowY + bowSize * 0.25);
+    ctx.closePath();
+    ctx.fill();
+
+    // Sparkle effects
+    ctx.fillStyle = '#FFFFFF';
+    const sparkleTime = Date.now() / 200;
+    for (let i = 0; i < 5; i++) {
+        const sparkleX = x + presentSize * 0.2 + (i * presentSize * 0.15);
+        const sparkleY = y + presentSize * 0.2 + Math.sin(sparkleTime + i) * 10 * SCALE;
+        const sparkleSize = (3 + Math.sin(sparkleTime + i * 2)) * SCALE;
+        ctx.beginPath();
+        ctx.arc(sparkleX, sparkleY, sparkleSize, 0, Math.PI * 2);
+        ctx.fill();
+    }
+}
+
+// Draw the win screen with gift reveal
+function drawWinScreen() {
+    const elapsed = Date.now() - winAnimationStart;
+    const fadeIn = Math.min(1, elapsed / 1000);
+
+    // Semi-transparent overlay
+    ctx.fillStyle = `rgba(26, 26, 46, ${fadeIn * 0.85})`;
+    ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+    // Animated snowflakes in background
+    ctx.fillStyle = '#FFFFFF';
+    for (let i = 0; i < 50; i++) {
+        const snowX = (Math.sin(elapsed / 1000 + i * 0.5) * 0.5 + 0.5) * CANVAS_WIDTH;
+        const snowY = ((elapsed / 20 + i * 50) % CANVAS_HEIGHT);
+        const snowSize = (2 + (i % 3)) * SCALE;
+        ctx.globalAlpha = fadeIn * 0.7;
+        ctx.beginPath();
+        ctx.arc(snowX, snowY, snowSize, 0, Math.PI * 2);
+        ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+
+    if (elapsed < 500) return; // Wait before showing text
+
+    const centerX = CANVAS_WIDTH / 2;
+    const centerY = CANVAS_HEIGHT / 2;
+
+    // Draw decorative present icons on sides
+    const miniPresentSize = 30 * SCALE;
+    const sideOffset = 200 * SCALE;
+    for (let side = -1; side <= 1; side += 2) {
+        const px = centerX + side * sideOffset;
+        const py = centerY - 20 * SCALE + Math.sin(elapsed / 300 + side) * 8 * SCALE;
+
+        ctx.fillStyle = COLORS.presentRed;
+        ctx.fillRect(px - miniPresentSize/2, py - miniPresentSize/2, miniPresentSize, miniPresentSize);
+        ctx.fillStyle = COLORS.ribbon;
+        ctx.fillRect(px - miniPresentSize * 0.1, py - miniPresentSize/2, miniPresentSize * 0.2, miniPresentSize);
+        ctx.fillRect(px - miniPresentSize/2, py - miniPresentSize * 0.1, miniPresentSize, miniPresentSize * 0.2);
+
+        // Mini bow
+        ctx.beginPath();
+        ctx.arc(px, py - miniPresentSize/2 - 4 * SCALE, 6 * SCALE, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    // Title: "FROHE WEIHNACHTEN!"
+    const titleSize = Math.floor(32 * SCALE);
+    ctx.font = `bold ${titleSize}px monospace`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    const titleY = centerY - 135 * SCALE;
+    const title = "🎄 FROHE WEIHNACHTEN! 🎄";
+
+    // Glow effect
+    ctx.shadowColor = '#FFD700';
+    ctx.shadowBlur = 20 * SCALE;
+
+    // Title outline
+    ctx.fillStyle = '#0D3B0D';
+    for (let ox = -3; ox <= 3; ox++) {
+        for (let oy = -3; oy <= 3; oy++) {
+            ctx.fillText(title, centerX + ox * SCALE, titleY + oy * SCALE);
+        }
+    }
+
+    // Animated rainbow title
+    const gradient = ctx.createLinearGradient(centerX - 200 * SCALE, 0, centerX + 200 * SCALE, 0);
+    const hueShift = (elapsed / 20) % 360;
+    gradient.addColorStop(0, `hsl(${hueShift}, 80%, 50%)`);
+    gradient.addColorStop(0.5, `hsl(${(hueShift + 60) % 360}, 80%, 50%)`);
+    gradient.addColorStop(1, `hsl(${(hueShift + 120) % 360}, 80%, 50%)`);
+    ctx.fillStyle = gradient;
+    ctx.fillText(title, centerX, titleY);
+
+    ctx.shadowBlur = 0;
+
+    // Subtitle: "Liebe Lisa"
+    if (elapsed > 800) {
+        const subSize = Math.floor(18 * SCALE);
+        ctx.font = `bold ${subSize}px monospace`;
+        ctx.fillStyle = '#FFD700';
+        ctx.fillText("Geschenkgutschein für Lisa", centerX, titleY + 48 * SCALE);
+    }
+
+    // Main gift text
+    if (elapsed > 1200) {
+        const textSize = Math.floor(18 * SCALE);
+        ctx.font = `bold ${textSize}px monospace`;
+
+        const lines = [
+            "✨ ALL-INCLUSIVE SKITRIP ✨",
+            "nach",
+            "🏔️ HOCHFICHT, AUSTRIA 🏔️",
+            "📅 6. Januar 2026 📅"
+        ];
+
+        const startY = centerY - 25 * SCALE;
+        const lineHeight = 34 * SCALE;
+
+        lines.forEach((line, i) => {
+            const y = startY + i * lineHeight;
+            const alpha = Math.min(1, (elapsed - 1200 - i * 150) / 300);
+            if (alpha <= 0) return;
+
+            ctx.globalAlpha = alpha;
+
+            // Special styling for highlight lines
+            if (line.includes("ALL-INCLUSIVE") || line.includes("HOCHFICHT")) {
+                ctx.font = `bold ${Math.floor(22 * SCALE)}px monospace`;
+                ctx.fillStyle = '#E53935';
+
+                // Pulsing effect
+                const pulse = 1 + Math.sin(elapsed / 200) * 0.05;
+                ctx.save();
+                ctx.translate(centerX, y);
+                ctx.scale(pulse, pulse);
+                ctx.translate(-centerX, -y);
+
+                // Outline
+                ctx.strokeStyle = '#FFD700';
+                ctx.lineWidth = 2 * SCALE;
+                ctx.strokeText(line, centerX, y);
+                ctx.fillText(line, centerX, y);
+                ctx.restore();
+            } else if (line.includes("6. Januar")) {
+                ctx.font = `bold ${Math.floor(20 * SCALE)}px monospace`;
+                ctx.fillStyle = '#4CAF50';
+                ctx.fillText(line, centerX, y);
+            } else {
+                ctx.font = `bold ${textSize}px monospace`;
+                ctx.fillStyle = '#FFFFFF';
+                ctx.fillText(line, centerX, y);
+            }
+        });
+
+        ctx.globalAlpha = 1;
+    }
+
+    // Lunch bonus reveal
+    if (elapsed > 2500) {
+        const bonusY = centerY + 125 * SCALE;
+        const bonusAlpha = Math.min(1, (elapsed - 2500) / 500);
+        ctx.globalAlpha = bonusAlpha;
+
+        // Box background
+        const boxWidth = 300 * SCALE;
+        const boxHeight = 50 * SCALE;
+        ctx.fillStyle = 'rgba(139, 0, 0, 0.8)';
+        ctx.fillRect(centerX - boxWidth/2, bonusY - boxHeight/2, boxWidth, boxHeight);
+
+        // Gold border
+        ctx.strokeStyle = '#FFD700';
+        ctx.lineWidth = 3 * SCALE;
+        ctx.strokeRect(centerX - boxWidth/2, bonusY - boxHeight/2, boxWidth, boxHeight);
+
+        // Bonus text
+        ctx.font = `bold ${Math.floor(14 * SCALE)}px monospace`;
+        ctx.fillStyle = '#FFD700';
+        ctx.fillText("🍽️ INKLUSIVE EINKEHR 🍽️", centerX, bonusY - 10 * SCALE);
+
+        ctx.font = `bold ${Math.floor(16 * SCALE)}px monospace`;
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillText("🌭 Currywurst & Pommes 🍟", centerX, bonusY + 12 * SCALE);
+
+        ctx.globalAlpha = 1;
+    }
+
+    // Sparkle stars animation
+    if (elapsed > 1000) {
+        ctx.fillStyle = '#FFD700';
+        for (let i = 0; i < 12; i++) {
+            const starAngle = (elapsed / 1000 + i * 0.5) % (Math.PI * 2);
+            const starDist = 140 * SCALE + Math.sin(i * 2) * 60 * SCALE;
+            const starX = centerX + Math.cos(starAngle + i) * starDist;
+            const starY = centerY + Math.sin(starAngle * 0.7 + i) * starDist * 0.4;
+            const starSize = (2 + Math.sin(elapsed / 100 + i)) * SCALE;
+
+            ctx.globalAlpha = 0.5 + Math.sin(elapsed / 150 + i) * 0.5;
+            ctx.beginPath();
+            ctx.arc(starX, starY, starSize, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+    }
+}
+
+// Draw progress bar and distance counter
+function drawProgressBar() {
+    const padding = 20 * SCALE;
+    const barWidth = 300 * SCALE;
+    const barHeight = 20 * SCALE;
+    const barX = (CANVAS_WIDTH - barWidth) / 2;
+    const barY = CANVAS_HEIGHT - padding - barHeight - 30 * SCALE;
+
+    // Calculate progress
+    const progress = distanceTraveled / TOTAL_DISTANCE;
+    const remaining = TOTAL_DISTANCE - distanceTraveled;
+
+    // Draw label
+    ctx.font = `bold ${Math.floor(14 * SCALE)}px monospace`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+
+    // Shadow
+    ctx.fillStyle = '#1A1A2E';
+    ctx.fillText('Distance till present', barX + barWidth / 2 + 2 * SCALE, barY - 5 * SCALE + 2 * SCALE);
+
+    // Label text
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillText('Distance till present', barX + barWidth / 2, barY - 5 * SCALE);
+
+    // Draw bar background
+    ctx.fillStyle = '#1A1A2E';
+    ctx.fillRect(barX - 2 * SCALE, barY - 2 * SCALE, barWidth + 4 * SCALE, barHeight + 4 * SCALE);
+
+    // Bar border
+    ctx.fillStyle = '#2E7D32';
+    ctx.fillRect(barX, barY, barWidth, barHeight);
+
+    // Bar fill (progress)
+    const fillWidth = barWidth * progress;
+    ctx.fillStyle = '#E53935';
+    ctx.fillRect(barX, barY, fillWidth, barHeight);
+
+    // Add shine effect
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+    ctx.fillRect(barX, barY, fillWidth, barHeight / 3);
+
+    // Draw distance counter below the bar
+    const counterY = barY + barHeight + 15 * SCALE;
+    ctx.font = `bold ${Math.floor(16 * SCALE)}px monospace`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+
+    const distanceText = `${Math.floor(distanceTraveled)}m / ${TOTAL_DISTANCE}m  (${Math.floor(remaining)}m remaining)`;
+
+    // Shadow
+    ctx.fillStyle = '#1A1A2E';
+    ctx.fillText(distanceText, barX + barWidth / 2 + 2 * SCALE, counterY + 2 * SCALE);
+
+    // Text
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillText(distanceText, barX + barWidth / 2, counterY);
+}
+
 // Render game
 function render() {
     // Clear canvas with sky color
@@ -588,11 +973,22 @@ function render() {
     drawTrees();
     drawGround();
 
+    // Draw the present (if visible)
+    drawPresent();
+
     // Draw skier
     drawSkier();
 
     // Draw title
     drawTitle();
+
+    // Draw progress bar and distance counter
+    drawProgressBar();
+
+    // Draw win screen if game is won
+    if (gameWon) {
+        drawWinScreen();
+    }
 }
 
 // Game loop
