@@ -1399,8 +1399,10 @@ function drawBoostMeter() {
     const padding = 20 * SCALE;
     const meterWidth = 200 * SCALE;
     const meterHeight = 15 * SCALE;
-    const meterX = padding;
-    const meterY = padding + 30 * SCALE; // Slightly below the top to avoid overlap
+    const titleFontSize = Math.floor(32 * SCALE);
+    const titleHeight = titleFontSize + 10 * SCALE; // Approximate title height with some padding
+    const meterX = CANVAS_WIDTH - padding - meterWidth; // Align to right side
+    const meterY = padding + titleHeight + 15 * SCALE; // Below the title with spacing
 
     // Calculate boost cooldown progress
     const now = Date.now();
@@ -1410,12 +1412,12 @@ function drawBoostMeter() {
 
     // Draw label
     ctx.font = `bold ${Math.floor(12 * SCALE)}px monospace`;
-    ctx.textAlign = 'left';
+    ctx.textAlign = 'right';
     ctx.textBaseline = 'bottom';
 
     const label = isBoosting ? '🔥 BOOSTING! 🔥' : (isReady ? '💨 BOOST READY (DD) 💨' : '⏳ Boost Cooldown...');
     ctx.fillStyle = isBoosting ? '#FF6B00' : (isReady ? '#4CAF50' : '#999999');
-    ctx.fillText(label, meterX, meterY - 5 * SCALE);
+    ctx.fillText(label, meterX + meterWidth, meterY - 5 * SCALE);
 
     // Draw meter background
     ctx.fillStyle = '#1A1A2E';
@@ -1451,8 +1453,8 @@ function drawProgressBar() {
     const padding = 20 * SCALE;
     const barWidth = 300 * SCALE;
     const barHeight = 20 * SCALE;
-    const barX = (CANVAS_WIDTH - barWidth) / 2;
-    const barY = CANVAS_HEIGHT - padding - barHeight - 30 * SCALE;
+    const barX = padding; // Align to the left
+    const barY = CANVAS_HEIGHT - padding - barHeight - 30 * SCALE; // Bottom left corner
 
     // Calculate progress
     const progress = distanceTraveled / TOTAL_DISTANCE;
@@ -1464,11 +1466,11 @@ function drawProgressBar() {
     ctx.textBaseline = 'bottom';
 
     // Shadow
-    ctx.fillStyle = '#1A1A2E';
+    ctx.fillStyle = '#FFFFFF';
     ctx.fillText('Distance till present', barX + barWidth / 2 + 2 * SCALE, barY - 5 * SCALE + 2 * SCALE);
 
     // Label text
-    ctx.fillStyle = '#FFFFFF';
+    ctx.fillStyle = '#000000';
     ctx.fillText('Distance till present', barX + barWidth / 2, barY - 5 * SCALE);
 
     // Draw bar background
@@ -1497,11 +1499,11 @@ function drawProgressBar() {
     const distanceText = `${Math.floor(distanceTraveled)}m / ${TOTAL_DISTANCE}m  (${Math.floor(remaining)}m remaining)`;
 
     // Shadow
-    ctx.fillStyle = '#1A1A2E';
+    ctx.fillStyle = '#FFFFFF';
     ctx.fillText(distanceText, barX + barWidth / 2 + 2 * SCALE, counterY + 2 * SCALE);
 
     // Text
-    ctx.fillStyle = '#FFFFFF';
+    ctx.fillStyle = '#000000';
     ctx.fillText(distanceText, barX + barWidth / 2, counterY);
 }
 
