@@ -381,6 +381,31 @@ const trees = [
 // Input handling
 const keys = {};
 
+// Helper function to activate boost (shared by keyboard and touch controls)
+function activateBoost() {
+    const now = Date.now();
+    const timeSinceLastBoost = now - lastBoostTime;
+    if (timeSinceLastBoost >= BOOST_COOLDOWN) {
+        // Activate boost!
+        isBoosting = true;
+        boostStartTime = now;
+        lastBoostTime = now;
+
+        // Create fart clouds
+        for (let i = 0; i < 10; i++) {
+            fartClouds.push({
+                x: skier.x - (-15 + Math.random() * 6) * SCALE,
+                y: skier.y - (30 + Math.random() * 8) * SCALE,
+                size: (20 + Math.random() * 12) * SCALE,
+                velocityX: -(0.3 + Math.random() * 0.5) * SCALE,
+                velocityY: (Math.random() - 0.5) * 0.3 * SCALE,
+                opacity: 1,
+                lifetime: 0
+            });
+        }
+    }
+}
+
 // Restart game function
 function restartGame() {
     gameOver = false;
@@ -426,31 +451,6 @@ document.addEventListener('keydown', (e) => {
         }
     }
 
-    // Helper function to activate boost
-    function activateBoost() {
-        const now = Date.now();
-        const timeSinceLastBoost = now - lastBoostTime;
-        if (timeSinceLastBoost >= BOOST_COOLDOWN) {
-            // Activate boost!
-            isBoosting = true;
-            boostStartTime = now;
-            lastBoostTime = now;
-
-            // Create fart clouds (close to the butt!)
-            for (let i = 0; i < 10; i++) {
-                fartClouds.push({
-                    x: skier.x - (5 + Math.random() * 10) * SCALE,
-                    y: skier.y - (25 + Math.random() * 15) * SCALE,
-                    size: (10 + Math.random() * 12) * SCALE,
-                    velocityX: -(0.3 + Math.random() * 0.5) * SCALE,
-                    velocityY: (Math.random() - 0.5) * 0.3 * SCALE,
-                    opacity: 1,
-                    lifetime: 0
-                });
-            }
-        }
-    }
-
     // Double-tap 'D' for speed boost (fart boost!)
     if (e.code === 'KeyD' && !gameOver && !gameWon) {
         const now = Date.now();
@@ -487,27 +487,7 @@ canvas.addEventListener('touchstart', (e) => {
 
     // Double tap detected - boost!
     if (timeSinceLastTouch < DOUBLE_TAP_THRESHOLD && !gameOver && !gameWon) {
-        // Call the activateBoost function from keydown handler scope
-        const timeSinceLastBoost = now - lastBoostTime;
-        if (timeSinceLastBoost >= BOOST_COOLDOWN) {
-            // Activate boost!
-            isBoosting = true;
-            boostStartTime = now;
-            lastBoostTime = now;
-
-            // Create fart clouds (close to the butt!)
-            for (let i = 0; i < 10; i++) {
-                fartClouds.push({
-                    x: skier.x - (5 + Math.random() * 10) * SCALE,
-                    y: skier.y - (25 + Math.random() * 15) * SCALE,
-                    size: (10 + Math.random() * 12) * SCALE,
-                    velocityX: -(0.3 + Math.random() * 0.5) * SCALE,
-                    velocityY: (Math.random() - 0.5) * 0.3 * SCALE,
-                    opacity: 1,
-                    lifetime: 0
-                });
-            }
-        }
+        activateBoost();
     } else {
         // Single tap - jump!
         if (!gameOver) {
