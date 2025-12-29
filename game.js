@@ -382,7 +382,7 @@ let backgroundOffset = 0;
 const BASE_SCROLL_SPEED = 5;
 
 // Distance tracking (in meters)
-const TOTAL_DISTANCE = 3000; // Total distance to the present in meters
+const TOTAL_DISTANCE = 10; // Total distance to the present in meters
 const PIXELS_PER_METER = 10; // How many pixels equal one meter
 let distanceTraveled = 0;
 
@@ -1393,8 +1393,8 @@ function drawWinScreen() {
         ctx.globalAlpha = bonusAlpha;
 
         // Box background
-        const boxWidth = 300 * SCALE;
-        const boxHeight = 50 * SCALE;
+        const boxWidth = 400 * SCALE;
+        const boxHeight = 55 * SCALE;
         ctx.fillStyle = 'rgba(139, 0, 0, 0.8)';
         ctx.fillRect(centerX - boxWidth/2, bonusY - boxHeight/2, boxWidth, boxHeight);
 

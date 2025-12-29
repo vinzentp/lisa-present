@@ -4,7 +4,7 @@ const TEXTS = {
     MENU: {
         TITLE: 'Lisa\'s Christmas Game',
         SUBTITLE: 'Choose your mode',
-        NORMAL_MODE_TITLE: 'PRESENT MODE',
+        NORMAL_MODE_TITLE: '🎁 PRESENT MODE 🎁',
         NORMAL_MODE_DESC: 'Much to win, nothing to lose',
         ENDLESS_MODE_TITLE: 'ENDLESS MODE',
         ENDLESS_MODE_DESC: 'Much to lose, nothing to win',
@@ -23,21 +23,21 @@ const TEXTS = {
     // Game Over Screen
     GAME_OVER: {
         TITLE: '💥 GAME OVER 💥',
-        MESSAGE: 'Du hast ein Hindernis getroffen!',
-        DISTANCE_FORMAT: (distance, total) => `Geschaffte Distanz: ${Math.floor(distance)}m von ${total}m`,
-        RESTART_HINT: 'Drücke LEERTASTE zum Neustarten'
+        MESSAGE: 'You hit an obstacle!',
+        DISTANCE_FORMAT: (distance, total) => `Distance covered: ${Math.floor(distance)}m of ${total}m`,
+        RESTART_HINT: 'Press SPACEBAR to restart'
     },
 
     // Win Screen
     WIN_SCREEN: {
-        TITLE: '🎄 FROHE WEIHNACHTEN! 🎄',
-        GIFT_HEADER: 'Geschenkgutschein für Lisa',
-        TRIP_HIGHLIGHT: '✨ ALL-INCLUSIVE SKITRIP ✨',
-        TRIP_TO: 'nach',
-        LOCATION: '🏔️ HOCHFICHT, Österreich 🏔️',
-        DATE: '📅 6. Januar 2026 📅',
-        MEAL_HEADER: '🍽️ INKLUSIVE EINKEHR 🍽️',
-        MEAL_DETAIL: '🌭 Currywurst & Pommes 🍟'
+        TITLE: '🎄 MERRY CHRISTMAS! 🎄',
+        GIFT_HEADER: 'Gift Certificate for Lisa',
+        TRIP_HIGHLIGHT: '✨ ALL-INCLUSIVE SKI TRIP ✨',
+        TRIP_TO: 'to',
+        LOCATION: '🏔️ HOCHFICHT, Austria 🏔️',
+        DATE: '📅 January 6, 2026 📅',
+        MEAL_HEADER: '🍽️ MEAL INCLUDED 🍽️',
+        MEAL_DETAIL: '🌭 Serviervorschlag: Currywurst & Fries 🍟'
     },
 
     // Boost Meter
@@ -49,7 +49,7 @@ const TEXTS = {
 
     // Progress Bar (Normal Mode)
     PROGRESS: {
-        LABEL: 'Distance till present',
+        LABEL: 'Distance till 🎁',
         DISTANCE_FORMAT: (distance, total) => {
             const remaining = total - distance;
             return `${Math.floor(distance)}m / ${total}m  (${Math.floor(remaining)}m remaining)`;
