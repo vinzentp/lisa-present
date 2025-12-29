@@ -78,10 +78,12 @@ let fartClouds = [];
 // Place the image in the /obstacles folder and configure below
 // ============================================
 const OBSTACLE_FILES = [
-    { file: 'couch.png', size: 2.0, rotation: 15, hard: true },
-    { file: 'lisa.png', size: 2.0, rotation: 20, hard: true },
-    { file: 'curry.png', size: 1.0, rotation: 15, hard: false },
-    { file: 'weizen.png', size: 1.0, rotation: 15, hard: false },
+    { file: 'couch.png', size: 2.5, rotation: 15, hard: true },
+    { file: 'lisa.png', size: 1.8, rotation: 20, hard: false }, 
+   //{ file: 'marius.png', size: 1.0, rotation: 15, hard: false },
+    //{ file: 'lisa_grin.png', size: 1.0, rotation: 15, hard: false },
+    //{ file: 'curry.png', size: 1.0, rotation: 15, hard: false },
+    //{ file: 'weizen.png', size: 1.0, rotation: 15, hard: false },
 
     // Example:
     // { file: 'rock.png', size: 1.0, rotation: 0, hard: false },
@@ -132,9 +134,14 @@ function spawnObstacle() {
     const canSpawnHard = timeSinceLastHard >= (BOOST_COOLDOWN * 1.5);
 
     // Filter out hard obstacles if not enough time has passed
-    const availableObstacles = canSpawnHard
+    let availableObstacles = canSpawnHard
         ? obstacleData
         : obstacleData.filter(obs => !obs.hard);
+
+    // Fallback: if no obstacles available (all are hard), allow hard obstacles anyway
+    if (availableObstacles.length === 0) {
+        availableObstacles = obstacleData;
+    }
 
     // Pick random obstacle from available pool
     const randomObstacle = availableObstacles[Math.floor(Math.random() * availableObstacles.length)];
