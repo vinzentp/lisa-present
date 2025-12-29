@@ -35,6 +35,18 @@ const BASE_HEIGHT = 400;
 let CANVAS_WIDTH = window.innerWidth;
 let CANVAS_HEIGHT = window.innerHeight;
 let SCALE = Math.min(CANVAS_WIDTH / BASE_WIDTH, CANVAS_HEIGHT / BASE_HEIGHT);
+
+// Mobile device detection
+const isMobileDevice = () => {
+    return (
+        ('ontouchstart' in window) ||
+        (navigator.maxTouchPoints > 0) ||
+        (navigator.msMaxTouchPoints > 0) ||
+        /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+    );
+};
+const IS_MOBILE = isMobileDevice();
+
 let GROUND_Y = CANVAS_HEIGHT - (80 * SCALE);
 let PIXEL_SIZE = Math.max(4, Math.floor(4 * SCALE));
 const SLOPE_ANGLE = 0.20;  // Slope steepness (rise/run) - 20% grade
@@ -83,6 +95,40 @@ let skierOnObstacle = false;
 let gameMode = 'normal'; // 'normal' or 'endless'
 let showMenu = true;
 
+// Orientation state (mobile only)
+let isPortrait = false;
+let showOrientationWarning = false;
+
+// Function to check orientation
+function checkOrientation() {
+    if (!IS_MOBILE) return;
+
+    // Use window dimensions for better iOS Safari compatibility
+    const isCurrentlyPortrait = window.innerHeight > window.innerWidth;
+
+    if (isCurrentlyPortrait !== isPortrait) {
+        isPortrait = isCurrentlyPortrait;
+        showOrientationWarning = isPortrait;
+
+        // Cancel boost if orientation changes to portrait (only if boost variables are initialized)
+        if (isPortrait && typeof isBoosting !== 'undefined' && isBoosting) {
+            spacePressed = false;
+            isBoosting = false;
+            boostEndTime = Date.now();
+            if (typeof activeBoostTouch !== 'undefined') {
+                activeBoostTouch = null;
+            }
+        }
+    }
+}
+
+// Set up orientation listeners (mobile only)
+if (IS_MOBILE) {
+    window.addEventListener('resize', checkOrientation);
+    window.addEventListener('orientationchange', checkOrientation);
+    checkOrientation(); // Initial check
+}
+
 // High score for endless mode
 let endlessHighScore = 0;
 
@@ -94,6 +140,24 @@ if (savedMode) {
 const savedHighScore = localStorage.getItem('skiEndlessHighScore');
 if (savedHighScore) {
     endlessHighScore = parseInt(savedHighScore);
+}
+
+// First-time visit detection for touch zone indicators
+const STORAGE_KEY_FIRST_VISIT = 'skiGameFirstVisit';
+let hasPlayedBefore = localStorage.getItem(STORAGE_KEY_FIRST_VISIT) === 'true';
+let showTouchIndicators = IS_MOBILE && !hasPlayedBefore;
+
+// Function to mark as played
+function markAsPlayed() {
+    if (!hasPlayedBefore && IS_MOBILE) {
+        try {
+            localStorage.setItem(STORAGE_KEY_FIRST_VISIT, 'true');
+        } catch (e) {
+            console.log('localStorage not available');
+        }
+        hasPlayedBefore = true;
+        showTouchIndicators = false;
+    }
 }
 
 // Function to toggle sound
@@ -141,6 +205,10 @@ const BOOST_DURATION = 800; // 0.8 seconds of boost (max hold time)
 const BOOST_DECEL_DURATION = 1000; // 1 second to decelerate smoothly after boost ends
 const BOOST_COOLDOWN = 5000; // 5 seconds cooldown after boost ends
 let fartClouds = [];
+
+// Touch control state (mobile only)
+let activeBoostTouch = null; // Track the touch ID for boost (right side)
+let activeTouches = new Map(); // Map of touch identifier -> touch data
 
 // ============================================
 // OBSTACLES SYSTEM
@@ -567,31 +635,123 @@ document.addEventListener('keyup', (e) => {
     }
 });
 
-// Touch controls for mobile
+// Touch controls for mobile - split screen zones
 canvas.addEventListener('touchstart', (e) => {
-    e.preventDefault(); // Prevent scrolling and default touch behavior
+    e.preventDefault();
 
-    if (!gameOver) {
-        // Jump on touch
-        const canJump = !skier.isJumping || skierOnObstacle;
-        if (canJump) {
-            skier.velocityY = skier.jumpPower;
-            skier.isJumping = true;
-            skierOnObstacle = false;
-        }
-    } else {
-        // Restart game on tap when game over
+    if (gameOver) {
         restartGame();
+        return;
+    }
+
+    if (showOrientationWarning || showMenu) return;
+
+    // Process all new touches
+    for (let i = 0; i < e.changedTouches.length; i++) {
+        const touch = e.changedTouches[i];
+        const touchX = touch.clientX;
+        const screenMidpoint = CANVAS_WIDTH / 2;
+
+        // Store touch data
+        activeTouches.set(touch.identifier, {
+            x: touchX,
+            startX: touchX,
+            side: touchX < screenMidpoint ? 'left' : 'right'
+        });
+
+        // Left half: Jump
+        if (touchX < screenMidpoint) {
+            const canJump = !skier.isJumping || skierOnObstacle;
+            if (canJump) {
+                skier.velocityY = skier.jumpPower;
+                skier.isJumping = true;
+                skierOnObstacle = false;
+            }
+        }
+        // Right half: Start boost (hold)
+        else {
+            // Only allow one boost touch at a time
+            if (activeBoostTouch === null) {
+                activeBoostTouch = touch.identifier;
+                spacePressed = true;
+                activateBoost();
+            }
+        }
+    }
+
+    // Hide touch indicators after first interaction
+    if (showTouchIndicators) {
+        markAsPlayed();
     }
 }, { passive: false });
 
-// Prevent default touch behavior to avoid scrolling
 canvas.addEventListener('touchmove', (e) => {
     e.preventDefault();
+
+    // Update touch positions (in case touch moves between zones)
+    for (let i = 0; i < e.changedTouches.length; i++) {
+        const touch = e.changedTouches[i];
+        if (activeTouches.has(touch.identifier)) {
+            const touchData = activeTouches.get(touch.identifier);
+            touchData.x = touch.clientX;
+
+            // If boost touch moves to left half, cancel boost
+            if (touch.identifier === activeBoostTouch) {
+                const screenMidpoint = CANVAS_WIDTH / 2;
+                if (touch.clientX < screenMidpoint) {
+                    // Touch moved to left side, cancel boost
+                    spacePressed = false;
+                    if (isBoosting) {
+                        isBoosting = false;
+                        boostEndTime = Date.now();
+                    }
+                    activeBoostTouch = null;
+                }
+            }
+        }
+    }
 }, { passive: false });
 
 canvas.addEventListener('touchend', (e) => {
     e.preventDefault();
+
+    // Process all ended touches
+    for (let i = 0; i < e.changedTouches.length; i++) {
+        const touch = e.changedTouches[i];
+
+        // If this was the boost touch, end boost
+        if (touch.identifier === activeBoostTouch) {
+            spacePressed = false;
+            if (isBoosting) {
+                isBoosting = false;
+                boostEndTime = Date.now();
+            }
+            activeBoostTouch = null;
+        }
+
+        // Remove from active touches
+        activeTouches.delete(touch.identifier);
+    }
+}, { passive: false });
+
+// Also handle touchcancel (when touch is interrupted)
+canvas.addEventListener('touchcancel', (e) => {
+    e.preventDefault();
+
+    for (let i = 0; i < e.changedTouches.length; i++) {
+        const touch = e.changedTouches[i];
+
+        if (touch.identifier === activeBoostTouch) {
+            spacePressed = false;
+            if (isBoosting) {
+                isBoosting = false;
+                boostEndTime = Date.now();
+            }
+            activeBoostTouch = null;
+        }
+
+        activeTouches.delete(touch.identifier);
+    }
 }, { passive: false });
 
 // Menu button listeners
@@ -990,8 +1150,8 @@ function drawGround() {
 
 // Update game state
 function update() {
-    // Pause game when menu is open
-    if (showMenu) return;
+    // Pause game when menu is open OR orientation warning is shown
+    if (showMenu || showOrientationWarning) return;
 
     // Don't update if game is won or over
     if (gameWon || gameOver) return;
@@ -1737,6 +1897,95 @@ function drawMilestone() {
     ctx.restore();
 }
 
+// Draw touch zone indicators (mobile first-time only)
+function drawTouchZoneIndicators() {
+    if (!showTouchIndicators) return;
+
+    const screenMidpoint = CANVAS_WIDTH / 2;
+    const padding = 40 * SCALE;
+    const iconSize = 60 * SCALE;
+    const fontSize = Math.floor(18 * SCALE);
+
+    // Semi-transparent overlay
+    ctx.save();
+
+    // Pulsing opacity animation
+    const pulseOpacity = 0.5 + Math.sin(Date.now() / 500) * 0.2;
+    ctx.globalAlpha = pulseOpacity;
+
+    // Left zone (Jump) - with tinted background
+    ctx.fillStyle = 'rgba(46, 125, 50, 0.3)'; // Green tint
+    ctx.fillRect(0, 0, screenMidpoint, CANVAS_HEIGHT);
+
+    // Right zone (Boost) - with tinted background
+    ctx.fillStyle = 'rgba(229, 57, 53, 0.3)'; // Red tint
+    ctx.fillRect(screenMidpoint, 0, screenMidpoint, CANVAS_HEIGHT);
+
+    ctx.globalAlpha = 1;
+
+    // Center divider line
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+    ctx.lineWidth = 3 * SCALE;
+    ctx.setLineDash([10 * SCALE, 10 * SCALE]);
+    ctx.beginPath();
+    ctx.moveTo(screenMidpoint, 0);
+    ctx.lineTo(screenMidpoint, CANVAS_HEIGHT);
+    ctx.stroke();
+    ctx.setLineDash([]); // Reset dash
+
+    // Left side - Jump icon and text
+    const leftCenterX = screenMidpoint / 2;
+    const centerY = CANVAS_HEIGHT / 2;
+
+    // Jump icon (up arrow emoji/symbol)
+    ctx.font = `${iconSize}px monospace`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillText('⬆️', leftCenterX, centerY - 40 * SCALE);
+
+    // Jump text
+    ctx.font = `bold ${fontSize}px monospace`;
+    ctx.fillStyle = '#FFFFFF';
+    ctx.strokeStyle = '#000000';
+    ctx.lineWidth = 3 * SCALE;
+    ctx.strokeText(TEXTS.TOUCH_ZONES.LEFT_TAP, leftCenterX, centerY + 20 * SCALE);
+    ctx.fillText(TEXTS.TOUCH_ZONES.LEFT_TAP, leftCenterX, centerY + 20 * SCALE);
+
+    ctx.font = `bold ${Math.floor(14 * SCALE)}px monospace`;
+    ctx.strokeText(TEXTS.TOUCH_ZONES.LEFT_ACTION, leftCenterX, centerY + 45 * SCALE);
+    ctx.fillText(TEXTS.TOUCH_ZONES.LEFT_ACTION, leftCenterX, centerY + 45 * SCALE);
+
+    // Right side - Boost icon and text
+    const rightCenterX = screenMidpoint + screenMidpoint / 2;
+
+    // Boost icon (rocket/fart emoji)
+    ctx.font = `${iconSize}px monospace`;
+    ctx.fillText('💨', rightCenterX, centerY - 40 * SCALE);
+
+    // Boost text
+    ctx.font = `bold ${fontSize}px monospace`;
+    ctx.fillStyle = '#FFFFFF';
+    ctx.strokeStyle = '#000000';
+    ctx.lineWidth = 3 * SCALE;
+    ctx.strokeText(TEXTS.TOUCH_ZONES.RIGHT_HOLD, rightCenterX, centerY + 20 * SCALE);
+    ctx.fillText(TEXTS.TOUCH_ZONES.RIGHT_HOLD, rightCenterX, centerY + 20 * SCALE);
+
+    ctx.font = `bold ${Math.floor(14 * SCALE)}px monospace`;
+    ctx.strokeText(TEXTS.TOUCH_ZONES.RIGHT_ACTION, rightCenterX, centerY + 45 * SCALE);
+    ctx.fillText(TEXTS.TOUCH_ZONES.RIGHT_ACTION, rightCenterX, centerY + 45 * SCALE);
+
+    // "Touch anywhere to begin" hint at bottom
+    ctx.font = `bold ${Math.floor(16 * SCALE)}px monospace`;
+    ctx.fillStyle = '#FFD700';
+    const hintOpacity = 0.7 + Math.sin(Date.now() / 300) * 0.3;
+    ctx.globalAlpha = hintOpacity;
+    ctx.strokeText(TEXTS.TOUCH_ZONES.HINT, CANVAS_WIDTH / 2, CANVAS_HEIGHT - 60 * SCALE);
+    ctx.fillText(TEXTS.TOUCH_ZONES.HINT, CANVAS_WIDTH / 2, CANVAS_HEIGHT - 60 * SCALE);
+
+    ctx.restore();
+}
+
 // Render game
 function render() {
     // Clear canvas with sky color
@@ -1772,6 +2021,11 @@ function render() {
     // Draw milestone animation
     drawMilestone();
 
+    // Draw touch zone indicators (mobile first-time only)
+    if (IS_MOBILE && !gameOver && !gameWon && !showMenu && !showOrientationWarning) {
+        drawTouchZoneIndicators();
+    }
+
     // Draw win screen if game is won
     if (gameWon) {
         drawWinScreen();
@@ -1789,6 +2043,16 @@ function render() {
     } else {
         menuElement.style.display = 'none';
     }
+
+    // Show/hide orientation warning (mobile only)
+    if (IS_MOBILE) {
+        const orientationElement = document.getElementById('orientationWarning');
+        if (showOrientationWarning) {
+            orientationElement.style.display = 'flex';
+        } else {
+            orientationElement.style.display = 'none';
+        }
+    }
 }
 
 // Game loop
@@ -1799,8 +2063,16 @@ function gameLoop() {
 }
 
 // Initialize text content from TEXTS module
-document.getElementById('jumpInstruction').textContent = TEXTS.INSTRUCTIONS.JUMP;
-document.getElementById('boostInstruction').textContent = TEXTS.INSTRUCTIONS.BOOST;
+// Set instructions based on device type
+if (IS_MOBILE) {
+    document.getElementById('jumpInstruction').textContent = TEXTS.INSTRUCTIONS.MOBILE_JUMP;
+    document.getElementById('boostInstruction').textContent = TEXTS.INSTRUCTIONS.MOBILE_BOOST;
+    // Hide keyboard instructions on mobile
+    document.getElementById('instructions').style.display = 'none';
+} else {
+    document.getElementById('jumpInstruction').textContent = TEXTS.INSTRUCTIONS.JUMP;
+    document.getElementById('boostInstruction').textContent = TEXTS.INSTRUCTIONS.BOOST;
+}
 document.getElementById('menuTitle').textContent = TEXTS.MENU.TITLE;
 document.getElementById('menuSubtitle').textContent = TEXTS.MENU.SUBTITLE;
 document.getElementById('normalModeTitle').textContent = TEXTS.MENU.NORMAL_MODE_TITLE;
@@ -1808,6 +2080,12 @@ document.getElementById('normalModeDesc').textContent = TEXTS.MENU.NORMAL_MODE_D
 document.getElementById('endlessModeTitle').textContent = TEXTS.MENU.ENDLESS_MODE_TITLE;
 document.getElementById('endlessModeDesc').textContent = TEXTS.MENU.ENDLESS_MODE_DESC;
 document.getElementById('returnToMenuBtn').textContent = TEXTS.MENU.MENU_BUTTON;
+
+// Initialize orientation warning text (mobile only)
+if (IS_MOBILE) {
+    document.getElementById('orientationWarningTitle').textContent = TEXTS.ORIENTATION_WARNING.TITLE;
+    document.getElementById('orientationWarningMessage').textContent = TEXTS.ORIENTATION_WARNING.MESSAGE;
+}
 
 // Show menu on startup
 document.getElementById('modeMenu').style.display = 'flex';

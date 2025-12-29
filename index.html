@@ -168,6 +168,48 @@
             #returnToMenuBtn { font-size: 10px; padding: 6px 12px; }
             #soundToggleBtn { font-size: 10px; padding: 6px 12px; right: 120px; }
         }
+
+        /* Orientation Warning (Mobile) */
+        #orientationWarning {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(26, 26, 46, 0.95);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000; /* Higher than menu (1000) */
+        }
+
+        #orientationWarningContent {
+            text-align: center;
+            color: #fff;
+            padding: 20px;
+        }
+
+        #rotateIcon {
+            font-size: 80px;
+            margin-bottom: 20px;
+            animation: rotate-pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes rotate-pulse {
+            0%, 100% { transform: rotate(0deg) scale(1); }
+            50% { transform: rotate(90deg) scale(1.1); }
+        }
+
+        #orientationWarningTitle {
+            font-size: 24px;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px #000;
+        }
+
+        #orientationWarningMessage {
+            font-size: 16px;
+            text-shadow: 2px 2px #000;
+        }
     </style>
 </head>
 <body>
@@ -189,6 +231,15 @@
                     <span class="mode-title" id="endlessModeTitle"></span>
                     <span class="mode-desc" id="endlessModeDesc"></span>
                 </button>
+            </div>
+        </div>
+
+        <!-- Orientation Warning (Mobile) -->
+        <div id="orientationWarning" style="display: none;">
+            <div id="orientationWarningContent">
+                <div id="rotateIcon">📱</div>
+                <h2 id="orientationWarningTitle"></h2>
+                <p id="orientationWarningMessage"></p>
             </div>
         </div>
     </div>

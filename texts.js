@@ -11,13 +11,30 @@ const TEXTS = {
         MENU_BUTTON: 'MENU'
     },
 
+    // Orientation Warning (Mobile)
+    ORIENTATION_WARNING: {
+        TITLE: 'Please Rotate Your Device',
+        MESSAGE: 'This game works best in landscape mode'
+    },
+
+    // Touch Zone Indicators (Mobile)
+    TOUCH_ZONES: {
+        LEFT_TAP: 'TAP',
+        LEFT_ACTION: 'to Jump',
+        RIGHT_HOLD: 'HOLD',
+        RIGHT_ACTION: 'to Boost',
+        HINT: 'Touch anywhere to begin'
+    },
+
     // Game Title
     GAME_TITLE: "Lisa's Christmas Game",
 
     // Control Instructions
     INSTRUCTIONS: {
         JUMP: 'Press W or UP to jump',
-        BOOST: 'Hold SPACE for Boost'
+        BOOST: 'Hold SPACE for Boost',
+        MOBILE_JUMP: 'Tap LEFT to jump',
+        MOBILE_BOOST: 'Hold RIGHT to boost'
     },
 
     // Game Over Screen
