@@ -382,7 +382,7 @@ let backgroundOffset = 0;
 const BASE_SCROLL_SPEED = 5;
 
 // Distance tracking (in meters)
-const TOTAL_DISTANCE = 10; // Total distance to the present in meters
+const TOTAL_DISTANCE = 2000; // Total distance to the present in meters
 const PIXELS_PER_METER = 10; // How many pixels equal one meter
 let distanceTraveled = 0;
 
