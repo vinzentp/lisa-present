@@ -1024,7 +1024,7 @@ function update() {
 
 // Draw title text in pixel art style
 function drawTitle() {
-    const title = "Lisa's Christmas Game";
+    const title = TEXTS.GAME_TITLE;
     const fontSize = Math.floor(32 * SCALE);
     const padding = 20 * SCALE;
 
@@ -1205,11 +1205,11 @@ function drawGameOverScreen() {
 
     // Title shadow
     ctx.fillStyle = '#000000';
-    ctx.fillText("💥 GAME OVER 💥", centerX + 3 * SCALE + shake, centerY - 40 * SCALE + 3 * SCALE);
+    ctx.fillText(TEXTS.GAME_OVER.TITLE, centerX + 3 * SCALE + shake, centerY - 40 * SCALE + 3 * SCALE);
 
     // Title
     ctx.fillStyle = '#FFFFFF';
-    ctx.fillText("💥 GAME OVER 💥", centerX + shake, centerY - 40 * SCALE);
+    ctx.fillText(TEXTS.GAME_OVER.TITLE, centerX + shake, centerY - 40 * SCALE);
 
     // Subtitle
     if (elapsed > 600) {
@@ -1219,12 +1219,12 @@ function drawGameOverScreen() {
         const subSize = Math.floor(24 * SCALE);
         ctx.font = `bold ${subSize}px monospace`;
         ctx.fillStyle = '#FFD700';
-        ctx.fillText("Du hast ein Hindernis getroffen!", centerX, centerY + 20 * SCALE);
+        ctx.fillText(TEXTS.GAME_OVER.MESSAGE, centerX, centerY + 20 * SCALE);
 
         // Distance traveled
         ctx.font = `bold ${Math.floor(18 * SCALE)}px monospace`;
         ctx.fillStyle = '#FFFFFF';
-        ctx.fillText(`Geschaffte Distanz: ${Math.floor(distanceTraveled)}m von ${TOTAL_DISTANCE}m`, centerX, centerY + 60 * SCALE);
+        ctx.fillText(TEXTS.GAME_OVER.DISTANCE_FORMAT(distanceTraveled, TOTAL_DISTANCE), centerX, centerY + 60 * SCALE);
 
         ctx.globalAlpha = 1;
     }
@@ -1237,7 +1237,7 @@ function drawGameOverScreen() {
         const hintSize = Math.floor(20 * SCALE);
         ctx.font = `bold ${hintSize}px monospace`;
         ctx.fillStyle = '#FFFFFF';
-        ctx.fillText("Drücke LEERTASTE zum Neustarten", centerX, centerY + 120 * SCALE);
+        ctx.fillText(TEXTS.GAME_OVER.RESTART_HINT, centerX, centerY + 120 * SCALE);
 
         ctx.globalAlpha = 1;
     }
@@ -1296,7 +1296,7 @@ function drawWinScreen() {
     ctx.textBaseline = 'middle';
 
     const titleY = centerY - 135 * SCALE;
-    const title = "🎄 FROHE WEIHNACHTEN! 🎄";
+    const title = TEXTS.WIN_SCREEN.TITLE;
 
     // Glow effect
     ctx.shadowColor = '#FFD700';
@@ -1326,7 +1326,7 @@ function drawWinScreen() {
         const subSize = Math.floor(18 * SCALE);
         ctx.font = `bold ${subSize}px monospace`;
         ctx.fillStyle = '#FFD700';
-        ctx.fillText("Geschenkgutschein für Lisa", centerX, titleY + 48 * SCALE);
+        ctx.fillText(TEXTS.WIN_SCREEN.GIFT_HEADER, centerX, titleY + 48 * SCALE);
     }
 
     // Main gift text
@@ -1335,10 +1335,10 @@ function drawWinScreen() {
         ctx.font = `bold ${textSize}px monospace`;
 
         const lines = [
-            "✨ ALL-INCLUSIVE SKITRIP ✨",
-            "nach",
-            "🏔️ HOCHFICHT, Österreich 🏔️",
-            "📅 6. Januar 2026 📅"
+            TEXTS.WIN_SCREEN.TRIP_HIGHLIGHT,
+            TEXTS.WIN_SCREEN.TRIP_TO,
+            TEXTS.WIN_SCREEN.LOCATION,
+            TEXTS.WIN_SCREEN.DATE
         ];
 
         const startY = centerY - 25 * SCALE;
@@ -1403,11 +1403,11 @@ function drawWinScreen() {
         // Bonus text
         ctx.font = `bold ${Math.floor(14 * SCALE)}px monospace`;
         ctx.fillStyle = '#FFD700';
-        ctx.fillText("🍽️ INKLUSIVE EINKEHR 🍽️", centerX, bonusY - 10 * SCALE);
+        ctx.fillText(TEXTS.WIN_SCREEN.MEAL_HEADER, centerX, bonusY - 10 * SCALE);
 
         ctx.font = `bold ${Math.floor(16 * SCALE)}px monospace`;
         ctx.fillStyle = '#FFFFFF';
-        ctx.fillText("🌭 Currywurst & Pommes 🍟", centerX, bonusY + 12 * SCALE);
+        ctx.fillText(TEXTS.WIN_SCREEN.MEAL_DETAIL, centerX, bonusY + 12 * SCALE);
 
         ctx.globalAlpha = 1;
     }
@@ -1452,7 +1452,7 @@ function drawBoostMeter() {
     ctx.textAlign = 'right';
     ctx.textBaseline = 'bottom';
 
-    const label = isBoosting ? '🔥 BOOSTING! 🔥' : (isReady ? '💨 BOOST READY (DD) 💨' : '⏳ Boost Cooldown...');
+    const label = isBoosting ? TEXTS.BOOST_METER.BOOSTING : (isReady ? TEXTS.BOOST_METER.READY : TEXTS.BOOST_METER.COOLDOWN);
     ctx.fillStyle = isBoosting ? '#FF6B00' : (isReady ? '#4CAF50' : '#999999');
     ctx.fillText(label, meterX + meterWidth, meterY - 5 * SCALE);
 
@@ -1509,11 +1509,11 @@ function drawProgressBar() {
 
     // Shadow
     ctx.fillStyle = '#FFFFFF';
-    ctx.fillText('Distance till present', barX + barWidth / 2 + 2 * SCALE, barY - 5 * SCALE + 2 * SCALE);
+    ctx.fillText(TEXTS.PROGRESS.LABEL, barX + barWidth / 2 + 2 * SCALE, barY - 5 * SCALE + 2 * SCALE);
 
     // Label text
     ctx.fillStyle = '#000000';
-    ctx.fillText('Distance till present', barX + barWidth / 2, barY - 5 * SCALE);
+    ctx.fillText(TEXTS.PROGRESS.LABEL, barX + barWidth / 2, barY - 5 * SCALE);
 
     // Draw bar background
     ctx.fillStyle = '#1A1A2E';
@@ -1538,7 +1538,7 @@ function drawProgressBar() {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
 
-    const distanceText = `${Math.floor(distanceTraveled)}m / ${TOTAL_DISTANCE}m  (${Math.floor(remaining)}m remaining)`;
+    const distanceText = TEXTS.PROGRESS.DISTANCE_FORMAT(distanceTraveled, TOTAL_DISTANCE);
 
     // Shadow
     ctx.fillStyle = '#FFFFFF';
@@ -1562,14 +1562,14 @@ function drawEndlessDistanceCounter() {
 
     // Shadow
     ctx.fillStyle = '#FFFFFF';
-    ctx.fillText('Distance', counterX + 2 * SCALE, counterY - 50 * SCALE + 2 * SCALE);
+    ctx.fillText(TEXTS.DISTANCE_COUNTER.LABEL, counterX + 2 * SCALE, counterY - 50 * SCALE + 2 * SCALE);
 
     // Label text
     ctx.fillStyle = '#000000';
-    ctx.fillText('Distance', counterX, counterY - 50 * SCALE);
+    ctx.fillText(TEXTS.DISTANCE_COUNTER.LABEL, counterX, counterY - 50 * SCALE);
 
     // Draw current distance (big number)
-    const distanceText = `${Math.floor(distanceTraveled)}m`;
+    const distanceText = TEXTS.DISTANCE_COUNTER.DISTANCE_FORMAT(distanceTraveled);
     ctx.font = `bold ${Math.floor(32 * SCALE)}px monospace`;
 
     // Shadow for big number
@@ -1582,7 +1582,7 @@ function drawEndlessDistanceCounter() {
 
     // Draw high score below current distance
     if (endlessHighScore > 0) {
-        const highScoreText = `Best: ${endlessHighScore}m`;
+        const highScoreText = TEXTS.DISTANCE_COUNTER.HIGH_SCORE_FORMAT(endlessHighScore);
         ctx.font = `bold ${Math.floor(12 * SCALE)}px monospace`;
         ctx.textBaseline = 'top';
 
@@ -1648,18 +1648,18 @@ function drawMilestone() {
 
     // Shadow
     ctx.fillStyle = '#000000';
-    ctx.fillText(`${milestoneAnimation.distance}m!`, centerX + 4 * SCALE, centerY + 4 * SCALE);
+    ctx.fillText(TEXTS.MILESTONE.DISTANCE_FORMAT(milestoneAnimation.distance), centerX + 4 * SCALE, centerY + 4 * SCALE);
 
     // Main text
     ctx.fillStyle = '#FFD700'; // Gold color
-    ctx.fillText(`${milestoneAnimation.distance}m!`, centerX, centerY);
+    ctx.fillText(TEXTS.MILESTONE.DISTANCE_FORMAT(milestoneAnimation.distance), centerX, centerY);
 
     // Subtitle
     ctx.font = `bold ${Math.floor(20 * SCALE)}px monospace`;
     ctx.fillStyle = '#FFFFFF';
-    ctx.fillText('Milestone Reached!', centerX + 2 * SCALE, centerY + 40 * SCALE + 2 * SCALE);
+    ctx.fillText(TEXTS.MILESTONE.ACHIEVEMENT, centerX + 2 * SCALE, centerY + 40 * SCALE + 2 * SCALE);
     ctx.fillStyle = '#000000';
-    ctx.fillText('Milestone Reached!', centerX, centerY + 40 * SCALE);
+    ctx.fillText(TEXTS.MILESTONE.ACHIEVEMENT, centerX, centerY + 40 * SCALE);
 
     ctx.restore();
 }
@@ -1724,6 +1724,17 @@ function gameLoop() {
     render();
     requestAnimationFrame(gameLoop);
 }
+
+// Initialize text content from TEXTS module
+document.getElementById('jumpInstruction').textContent = TEXTS.INSTRUCTIONS.JUMP;
+document.getElementById('boostInstruction').textContent = TEXTS.INSTRUCTIONS.BOOST;
+document.getElementById('menuTitle').textContent = TEXTS.MENU.TITLE;
+document.getElementById('menuSubtitle').textContent = TEXTS.MENU.SUBTITLE;
+document.getElementById('normalModeTitle').textContent = TEXTS.MENU.NORMAL_MODE_TITLE;
+document.getElementById('normalModeDesc').textContent = TEXTS.MENU.NORMAL_MODE_DESC;
+document.getElementById('endlessModeTitle').textContent = TEXTS.MENU.ENDLESS_MODE_TITLE;
+document.getElementById('endlessModeDesc').textContent = TEXTS.MENU.ENDLESS_MODE_DESC;
+document.getElementById('returnToMenuBtn').textContent = TEXTS.MENU.MENU_BUTTON;
 
 // Show menu on startup
 document.getElementById('modeMenu').style.display = 'flex';

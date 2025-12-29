@@ -145,25 +145,26 @@
 <body>
     <div id="gameContainer">
         <canvas id="gameCanvas"></canvas>
-        <div id="instructions">Press W or UP to jump <br>
-            Double tap D or -> for Boost</div>
-        <button id="returnToMenuBtn">MENU</button>
+        <div id="instructions"><span id="jumpInstruction"></span><br>
+            <span id="boostInstruction"></span></div>
+        <button id="returnToMenuBtn"></button>
         <div id="modeMenu">
             <div id="menuContent">
-                <h1>SKI TRIP</h1>
-                <p>Choose your mode</p>
+                <h1 id="menuTitle"></h1>
+                <p id="menuSubtitle"></p>
                 <button id="normalModeBtn" class="mode-button">
-                    <span class="mode-title">NORMAL MODE</span>
-                    <span class="mode-desc">Race to the present (3000m)</span>
+                    <span class="mode-title" id="normalModeTitle"></span>
+                    <span class="mode-desc" id="normalModeDesc"></span>
                 </button>
                 <button id="endlessModeBtn" class="mode-button">
-                    <span class="mode-title">ENDLESS MODE</span>
-                    <span class="mode-desc">See how far you can go!</span>
+                    <span class="mode-title" id="endlessModeTitle"></span>
+                    <span class="mode-desc" id="endlessModeDesc"></span>
                 </button>
             </div>
         </div>
     </div>
 
+    <script src="texts.js"></script>
     <script src="game.js"></script>
 </body>
 </html>
