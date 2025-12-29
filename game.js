@@ -65,7 +65,7 @@ let skierOnObstacle = false;
 let isBoosting = false;
 let boostStartTime = 0;
 const BOOST_DURATION = 800; // 0.8 seconds of boost
-const BOOST_DECEL_DURATION = 400; // 0.4 seconds to decelerate smoothly
+const BOOST_DECEL_DURATION = 1000; // 1 seconds to decelerate smoothly
 const BOOST_COOLDOWN = 5000; // 5 seconds cooldown
 let lastBoostTime = -BOOST_COOLDOWN;
 let lastDKeyPress = 0;
@@ -78,20 +78,21 @@ let fartClouds = [];
 // Place the image in the /obstacles folder and configure below
 // ============================================
 const OBSTACLE_FILES = [
-    { file: 'couch.png', size: 2.0, rotation: 15 },
-    { file: 'lisa.png', size: 2.0, rotation: 20 },
-    { file: 'curry.png', size: 1.0, rotation: 15 },
-    { file: 'weizen.png', size: 1.0, rotation: 15 },
+    { file: 'couch.png', size: 2.0, rotation: 15, hard: true },
+    { file: 'lisa.png', size: 2.0, rotation: 20, hard: true },
+    { file: 'curry.png', size: 1.0, rotation: 15, hard: false },
+    { file: 'weizen.png', size: 1.0, rotation: 15, hard: false },
 
     // Example:
-    // { file: 'rock.png', size: 1.0, rotation: 0 },
-    // { file: 'snowman.png', size: 1.5, rotation: 0 },
-    // { file: 'sign.png', size: 0.8, rotation: -15 },
+    // { file: 'rock.png', size: 1.0, rotation: 0, hard: false },
+    // { file: 'snowman.png', size: 1.5, rotation: 0, hard: true },
+    // { file: 'sign.png', size: 0.8, rotation: -15, hard: false },
     //
     // Parameters:
     //   file: filename in /obstacles folder
     //   size: size multiplier (1.0 = normal, 2.0 = double, 0.5 = half)
     //   rotation: rotation in degrees (positive = clockwise)
+    //   hard: if true, more space before and after this obstacle
 ];
 
 // Obstacle settings
@@ -112,29 +113,48 @@ OBSTACLE_FILES.forEach((obstacle, index) => {
     obstacleData.push({
         image: img,
         size: obstacle.size || 1.0,
-        rotation: obstacle.rotation || 0
+        rotation: obstacle.rotation || 0,
+        hard: obstacle.hard || false
     });
 });
 
 // Active obstacles in the game
 let obstacles = [];
 let nextObstacleDistance = OBSTACLE_SPACING_MIN + Math.random() * (OBSTACLE_SPACING_MAX - OBSTACLE_SPACING_MIN);
+let lastHardObstacleTime = 0; // Track when last hard obstacle was spawned
 
 // Spawn a new obstacle
 function spawnObstacle() {
-    if (obstacleData.length === 0) return;
+    if (obstacleData.length === 0) return 1.0;
 
-    const randomObstacle = obstacleData[Math.floor(Math.random() * obstacleData.length)];
+    const now = Date.now();
+    const timeSinceLastHard = now - lastHardObstacleTime;
+    const canSpawnHard = timeSinceLastHard >= (BOOST_COOLDOWN * 1.5);
+
+    // Filter out hard obstacles if not enough time has passed
+    const availableObstacles = canSpawnHard
+        ? obstacleData
+        : obstacleData.filter(obs => !obs.hard);
+
+    // Pick random obstacle from available pool
+    const randomObstacle = availableObstacles[Math.floor(Math.random() * availableObstacles.length)];
     const size = OBSTACLE_BASE_SIZE * SCALE * randomObstacle.size;
 
     obstacles.push({
         x: CANVAS_WIDTH + size,
         image: randomObstacle.image,
         size: size,
-        rotation: randomObstacle.rotation
+        rotation: randomObstacle.rotation,
+        hard: randomObstacle.hard
     });
 
-    nextObstacleDistance = OBSTACLE_SPACING_MIN + Math.random() * (OBSTACLE_SPACING_MAX - OBSTACLE_SPACING_MIN);
+    // Track when hard obstacle was spawned
+    if (randomObstacle.hard) {
+        lastHardObstacleTime = now;
+    }
+
+    // Hard obstacles get more spacing
+    return randomObstacle.hard ? 2 : 1.0;
 }
 
 // Check collision between skier and obstacles
@@ -210,8 +230,9 @@ function updateObstacles(speedMultiplier = 1.0) {
     if (obstacleData.length > 0) {
         const distanceInPixels = distanceTraveled * PIXELS_PER_METER * SCALE;
         if (distanceInPixels > nextObstacleDistance) {
-            spawnObstacle();
-            nextObstacleDistance = distanceInPixels + OBSTACLE_SPACING_MIN + Math.random() * (OBSTACLE_SPACING_MAX - OBSTACLE_SPACING_MIN);
+            const spacingMultiplier = spawnObstacle();
+            const baseSpacing = OBSTACLE_SPACING_MIN + Math.random() * (OBSTACLE_SPACING_MAX - OBSTACLE_SPACING_MIN);
+            nextObstacleDistance = distanceInPixels + (baseSpacing * spacingMultiplier);
         }
     }
 
@@ -372,6 +393,7 @@ function restartGame() {
     lastBoostTime = -BOOST_COOLDOWN;
     lastDKeyPress = 0;
     fartClouds = [];
+    lastHardObstacleTime = 0;
 }
 
 document.addEventListener('keydown', (e) => {
