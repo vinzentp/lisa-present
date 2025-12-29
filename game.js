@@ -432,6 +432,13 @@ let distanceTraveled = 0;
 let lastMilestone = 0;
 const MILESTONE_INTERVAL = 1000; // Every 1000m
 
+// Difficulty progression - gentle speed increase based on distance
+function getDifficultyMultiplier() {
+    if (gameWon || gameOver) return 1.0; // Freeze difficulty when game ends
+
+    return 1.0 + (0.5 * Math.log(1 + distanceTraveled / 1200) / Math.log(6));
+}
+
 // Mountains (parallax - slower) - base values, will be scaled when drawing
 const mountains = [
     { x: 0, width: 200, height: 120 },
@@ -1002,18 +1009,24 @@ function update() {
         }
     }
 
-    // Apply speed boost multiplier with smooth deceleration
-    let speedMultiplier = 1.0;
+    // Calculate boost multiplier (separate from difficulty)
+    let boostMultiplier = 1.0;
     if (isBoosting) {
-        speedMultiplier = 2.5;
+        boostMultiplier = 2.5;
     } else {
         // Smooth deceleration phase after boost ends
         const timeSinceBoostEnd = now - boostEndTime;
         if (timeSinceBoostEnd < BOOST_DECEL_DURATION) {
             const decelProgress = timeSinceBoostEnd / BOOST_DECEL_DURATION;
-            speedMultiplier = 2.5 - (1.5 * decelProgress); // Smoothly go from 2.5 to 1.0
+            boostMultiplier = 2.5 - (1.5 * decelProgress); // Smoothly go from 2.5 to 1.0
         }
     }
+
+    // Calculate difficulty multiplier based on distance traveled
+    const difficultyMultiplier = getDifficultyMultiplier();
+
+    // Compose both multipliers for final speed
+    const speedMultiplier = boostMultiplier * difficultyMultiplier;
 
     // Update background scroll (scaled) with boost
     backgroundOffset += BASE_SCROLL_SPEED * SCALE * speedMultiplier;
