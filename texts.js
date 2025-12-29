@@ -2,12 +2,12 @@
 const TEXTS = {
     // Menu & Navigation
     MENU: {
-        TITLE: 'SKI TRIP',
+        TITLE: 'Lisa\'s Christmas Game',
         SUBTITLE: 'Choose your mode',
-        NORMAL_MODE_TITLE: 'NORMAL MODE',
-        NORMAL_MODE_DESC: 'Race to the present (3000m)',
+        NORMAL_MODE_TITLE: 'PRESENT MODE',
+        NORMAL_MODE_DESC: 'Much to win, nothing to lose',
         ENDLESS_MODE_TITLE: 'ENDLESS MODE',
-        ENDLESS_MODE_DESC: 'See how far you can go!',
+        ENDLESS_MODE_DESC: 'Much to lose, nothing to win',
         MENU_BUTTON: 'MENU'
     },
 
@@ -42,9 +42,9 @@ const TEXTS = {
 
     // Boost Meter
     BOOST_METER: {
-        BOOSTING: '🔥 BOOSTING! 🔥',
-        READY: '💨 BOOST READY (DD) 💨',
-        COOLDOWN: '⏳ Boost Cooldown...'
+        BOOSTING: '💨 BOOSTING! 💨',
+        READY: 'BOOST READY!',
+        COOLDOWN: '🫘 Digesting... 🫘'
     },
 
     // Progress Bar (Normal Mode)

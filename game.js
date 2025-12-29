@@ -934,6 +934,9 @@ function drawGround() {
 
 // Update game state
 function update() {
+    // Pause game when menu is open
+    if (showMenu) return;
+
     // Don't update if game is won or over
     if (gameWon || gameOver) return;
 
