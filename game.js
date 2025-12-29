@@ -69,6 +69,8 @@ const BOOST_DECEL_DURATION = 1000; // 1 seconds to decelerate smoothly
 const BOOST_COOLDOWN = 5000; // 5 seconds cooldown
 let lastBoostTime = -BOOST_COOLDOWN;
 let lastDKeyPress = 0;
+let lastRightArrowPress = 0;
+let lastTouchTime = 0;
 const DOUBLE_TAP_THRESHOLD = 300; // ms between taps to count as double-tap
 let fartClouds = [];
 
@@ -399,6 +401,8 @@ function restartGame() {
     boostStartTime = 0;
     lastBoostTime = -BOOST_COOLDOWN;
     lastDKeyPress = 0;
+    lastRightArrowPress = 0;
+    lastTouchTime = 0;
     fartClouds = [];
     lastHardObstacleTime = 0;
 }
@@ -422,41 +426,114 @@ document.addEventListener('keydown', (e) => {
         }
     }
 
+    // Helper function to activate boost
+    function activateBoost() {
+        const now = Date.now();
+        const timeSinceLastBoost = now - lastBoostTime;
+        if (timeSinceLastBoost >= BOOST_COOLDOWN) {
+            // Activate boost!
+            isBoosting = true;
+            boostStartTime = now;
+            lastBoostTime = now;
+
+            // Create fart clouds (close to the butt!)
+            for (let i = 0; i < 10; i++) {
+                fartClouds.push({
+                    x: skier.x - (5 + Math.random() * 10) * SCALE,
+                    y: skier.y - (25 + Math.random() * 15) * SCALE,
+                    size: (10 + Math.random() * 12) * SCALE,
+                    velocityX: -(0.3 + Math.random() * 0.5) * SCALE,
+                    velocityY: (Math.random() - 0.5) * 0.3 * SCALE,
+                    opacity: 1,
+                    lifetime: 0
+                });
+            }
+        }
+    }
+
     // Double-tap 'D' for speed boost (fart boost!)
     if (e.code === 'KeyD' && !gameOver && !gameWon) {
         const now = Date.now();
         const timeSinceLastPress = now - lastDKeyPress;
 
         if (timeSinceLastPress < DOUBLE_TAP_THRESHOLD) {
-            // Double-tap detected!
-            const timeSinceLastBoost = now - lastBoostTime;
-            if (timeSinceLastBoost >= BOOST_COOLDOWN) {
-                // Activate boost!
-                isBoosting = true;
-                boostStartTime = now;
-                lastBoostTime = now;
-
-                // Create fart clouds (close to the butt!)
-                for (let i = 0; i < 10; i++) {
-                    fartClouds.push({
-                        x: skier.x - (5 + Math.random() * 10) * SCALE,
-                        y: skier.y - (25 + Math.random() * 15) * SCALE,
-                        size: (10 + Math.random() * 12) * SCALE,
-                        velocityX: -(0.3 + Math.random() * 0.5) * SCALE,
-                        velocityY: (Math.random() - 0.5) * 0.3 * SCALE,
-                        opacity: 1,
-                        lifetime: 0
-                    });
-                }
-            }
+            activateBoost();
         }
         lastDKeyPress = now;
+    }
+
+    // Double-tap right arrow for speed boost
+    if (e.code === 'ArrowRight' && !gameOver && !gameWon) {
+        const now = Date.now();
+        const timeSinceLastPress = now - lastRightArrowPress;
+
+        if (timeSinceLastPress < DOUBLE_TAP_THRESHOLD) {
+            activateBoost();
+        }
+        lastRightArrowPress = now;
     }
 });
 
 document.addEventListener('keyup', (e) => {
     keys[e.code] = false;
 });
+
+// Touch controls for mobile
+canvas.addEventListener('touchstart', (e) => {
+    e.preventDefault(); // Prevent scrolling and default touch behavior
+
+    const now = Date.now();
+    const timeSinceLastTouch = now - lastTouchTime;
+
+    // Double tap detected - boost!
+    if (timeSinceLastTouch < DOUBLE_TAP_THRESHOLD && !gameOver && !gameWon) {
+        // Call the activateBoost function from keydown handler scope
+        const timeSinceLastBoost = now - lastBoostTime;
+        if (timeSinceLastBoost >= BOOST_COOLDOWN) {
+            // Activate boost!
+            isBoosting = true;
+            boostStartTime = now;
+            lastBoostTime = now;
+
+            // Create fart clouds (close to the butt!)
+            for (let i = 0; i < 10; i++) {
+                fartClouds.push({
+                    x: skier.x - (5 + Math.random() * 10) * SCALE,
+                    y: skier.y - (25 + Math.random() * 15) * SCALE,
+                    size: (10 + Math.random() * 12) * SCALE,
+                    velocityX: -(0.3 + Math.random() * 0.5) * SCALE,
+                    velocityY: (Math.random() - 0.5) * 0.3 * SCALE,
+                    opacity: 1,
+                    lifetime: 0
+                });
+            }
+        }
+    } else {
+        // Single tap - jump!
+        if (!gameOver) {
+            const canJump = !skier.isJumping || skierOnObstacle;
+            if (canJump) {
+                skier.velocityY = skier.jumpPower;
+                skier.isJumping = true;
+                skierOnObstacle = false;
+            }
+        } else {
+            // Restart game on tap when game over
+            restartGame();
+        }
+    }
+
+    lastTouchTime = now;
+}, { passive: false });
+
+// Prevent default touch behavior to avoid scrolling
+canvas.addEventListener('touchmove', (e) => {
+    e.preventDefault();
+}, { passive: false });
+
+canvas.addEventListener('touchend', (e) => {
+    e.preventDefault();
+}, { passive: false });
 
 // Draw pixelated rectangle
 function drawPixelRect(x, y, width, height, color) {

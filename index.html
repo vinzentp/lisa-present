@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Ski Trip</title>
     <style>
         * {
@@ -15,6 +15,11 @@
             overflow: hidden;
             background-color: #1a1a2e;
             font-family: monospace;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+            -webkit-touch-callout: none;
         }
 
         #gameContainer {
@@ -31,6 +36,7 @@
             display: block;
             image-rendering: pixelated;
             image-rendering: crisp-edges;
+            touch-action: none;
         }
 
         #instructions {
@@ -41,12 +47,18 @@
             font-size: 12px;
             text-shadow: 2px 2px #000;
         }
+
+        @media (max-width: 768px) {
+            #instructions {
+                font-size: 10px;
+            }
+        }
     </style>
 </head>
 <body>
     <div id="gameContainer">
         <canvas id="gameCanvas"></canvas>
-        <div id="instructions">Press W or UP to jump</div>
+        <div id="instructions">Press W or UP to jump | Tap to jump | Double tap for boost</div>
     </div>
 
     <script src="game.js"></script>
