@@ -17,7 +17,7 @@ const TEXTS = {
     // Control Instructions
     INSTRUCTIONS: {
         JUMP: 'Press W or UP to jump',
-        BOOST: 'Double tap D or -> for Boost'
+        BOOST: 'Hold SPACE for Boost'
     },
 
     // Game Over Screen
@@ -37,7 +37,7 @@ const TEXTS = {
         LOCATION: '🏔️ HOCHFICHT, Austria 🏔️',
         DATE: '📅 January 6, 2026 📅',
         MEAL_HEADER: '🍽️ MEAL INCLUDED 🍽️',
-        MEAL_DETAIL: '🌭 Serviervorschlag: Currywurst & Fries 🍟'
+        MEAL_DETAIL: '🌭 Serviervorschlag: Currywurst & Pommes 🍟'
     },
 
     // Boost Meter

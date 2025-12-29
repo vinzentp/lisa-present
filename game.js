@@ -9,6 +9,24 @@ lisaHead.onload = () => {
     lisaHeadLoaded = true;
 };
 
+// Load fart sound
+const fartSound = new Audio('sounds/fart.mp3');
+fartSound.volume = 0.7; // Set volume to 70%
+
+// Load background music
+const backgroundMusic = new Audio('sounds/background.mp3');
+backgroundMusic.volume = 0.3; // Set volume to 30% so it's not too loud
+backgroundMusic.loop = true; // Loop endlessly
+
+// Sound state - default to OFF
+let soundEnabled = false;
+
+// Load saved sound preference
+const savedSoundPref = localStorage.getItem('skiGameSoundEnabled');
+if (savedSoundPref !== null) {
+    soundEnabled = savedSoundPref === 'true';
+}
+
 // Base design dimensions (original size)
 const BASE_WIDTH = 800;
 const BASE_HEIGHT = 400;
@@ -78,25 +96,50 @@ if (savedHighScore) {
     endlessHighScore = parseInt(savedHighScore);
 }
 
+// Function to toggle sound
+function toggleSound() {
+    soundEnabled = !soundEnabled;
+    localStorage.setItem('skiGameSoundEnabled', soundEnabled);
+
+    const btn = document.getElementById('soundToggleBtn');
+    if (soundEnabled) {
+        btn.textContent = '🔊 Sound: ON';
+        btn.classList.add('sound-on');
+        // Start background music if game is running
+        if (!showMenu) {
+            backgroundMusic.play().catch(e => console.log('Background music play failed:', e));
+        }
+    } else {
+        btn.textContent = '🔇 Sound: OFF';
+        btn.classList.remove('sound-on');
+        // Stop background music
+        backgroundMusic.pause();
+        backgroundMusic.currentTime = 0;
+    }
+}
+
 // Function to set game mode
 function setGameMode(mode) {
     gameMode = mode;
     localStorage.setItem('skiGameMode', mode);
     showMenu = false;
+
+    // Start background music only if sound is enabled (user interaction allows autoplay)
+    if (soundEnabled) {
+        backgroundMusic.play().catch(e => console.log('Background music play failed:', e));
+    }
+
     restartGame();
 }
 
 // Speed boost state (fart boost!)
 let isBoosting = false;
 let boostStartTime = 0;
-const BOOST_DURATION = 800; // 0.8 seconds of boost
-const BOOST_DECEL_DURATION = 1000; // 1 seconds to decelerate smoothly
-const BOOST_COOLDOWN = 5000; // 5 seconds cooldown
-let lastBoostTime = -BOOST_COOLDOWN;
-let lastDKeyPress = 0;
-let lastRightArrowPress = 0;
-let lastTouchTime = 0;
-const DOUBLE_TAP_THRESHOLD = 300; // ms between taps to count as double-tap
+let boostEndTime = -5000; // When boost ended (for cooldown calculation) - initialized to allow immediate first boost
+let spacePressed = false; // Track if space is currently held down
+const BOOST_DURATION = 800; // 0.8 seconds of boost (max hold time)
+const BOOST_DECEL_DURATION = 1000; // 1 second to decelerate smoothly after boost ends
+const BOOST_COOLDOWN = 5000; // 5 seconds cooldown after boost ends
 let fartClouds = [];
 
 // ============================================
@@ -107,10 +150,9 @@ let fartClouds = [];
 const OBSTACLE_FILES = [
     { file: 'couch.png', size: 2.5, rotation: 15, hard: true },
     { file: 'lisa.png', size: 1.8, rotation: 20, hard: false }, 
-   //{ file: 'marius.png', size: 1.0, rotation: 15, hard: false },
-    //{ file: 'lisa_grin.png', size: 1.0, rotation: 15, hard: false },
-    //{ file: 'curry.png', size: 1.0, rotation: 15, hard: false },
-    //{ file: 'weizen.png', size: 1.0, rotation: 15, hard: false },
+    { file: 'lisa_grin.png', size: 1.0, rotation: 15, hard: false },
+    { file: 'curry.png', size: 1.0, rotation: 15, hard: false },
+    { file: 'weizen.png', size: 1.0, rotation: 15, hard: false },
 
     // Example:
     // { file: 'rock.png', size: 1.0, rotation: 0, hard: false },
@@ -126,8 +168,8 @@ const OBSTACLE_FILES = [
 
 // Obstacle settings
 const OBSTACLE_BASE_SIZE = 60; // Base size in pixels (will be scaled)
-const OBSTACLE_SPACING_MIN = 600; // Minimum distance between obstacles
-const OBSTACLE_SPACING_MAX = 1200; // Maximum distance between obstacles
+const OBSTACLE_SPACING_MIN = 900; // Minimum distance between obstacles
+const OBSTACLE_SPACING_MAX = 1500; // Maximum distance between obstacles
 
 // Load obstacle images
 const obstacleData = [];
@@ -420,12 +462,18 @@ const keys = {};
 // Helper function to activate boost (shared by keyboard and touch controls)
 function activateBoost() {
     const now = Date.now();
-    const timeSinceLastBoost = now - lastBoostTime;
-    if (timeSinceLastBoost >= BOOST_COOLDOWN) {
-        // Activate boost!
+    const timeSinceBoostEnded = now - boostEndTime;
+
+    // Only activate if not on cooldown and not already boosting
+    if (timeSinceBoostEnded >= BOOST_COOLDOWN && !isBoosting) {
         isBoosting = true;
         boostStartTime = now;
-        lastBoostTime = now;
+
+        // Play fart sound only if sound is enabled
+        if (soundEnabled) {
+            fartSound.currentTime = 0; // Reset sound to beginning
+            fartSound.play().catch(e => console.log('Audio play failed:', e));
+        }
 
         // Create fart clouds
         for (let i = 0; i < 10; i++) {
@@ -460,10 +508,8 @@ function restartGame() {
     // Reset boost state
     isBoosting = false;
     boostStartTime = 0;
-    lastBoostTime = -BOOST_COOLDOWN;
-    lastDKeyPress = 0;
-    lastRightArrowPress = 0;
-    lastTouchTime = 0;
+    boostEndTime = -BOOST_COOLDOWN; // Reset to allow immediate boost
+    spacePressed = false;
     fartClouds = [];
     lastHardObstacleTime = 0;
     // Reset milestone tracking
@@ -473,6 +519,16 @@ function restartGame() {
 
 document.addEventListener('keydown', (e) => {
     keys[e.code] = true;
+
+    // Space key: hold to boost
+    if (e.code === 'Space' && !gameOver && !gameWon) {
+        e.preventDefault(); // Prevent page scroll
+        if (!spacePressed) { // Only activate once per press
+            spacePressed = true;
+            activateBoost();
+        }
+        return;
+    }
 
     // Restart game on space when game over
     if (e.code === 'Space' && gameOver) {
@@ -489,60 +545,37 @@ document.addEventListener('keydown', (e) => {
             skierOnObstacle = false; // Leaving the obstacle
         }
     }
-
-    // Double-tap 'D' for speed boost (fart boost!)
-    if (e.code === 'KeyD' && !gameOver && !gameWon) {
-        const now = Date.now();
-        const timeSinceLastPress = now - lastDKeyPress;
-
-        if (timeSinceLastPress < DOUBLE_TAP_THRESHOLD) {
-            activateBoost();
-        }
-        lastDKeyPress = now;
-    }
-
-    // Double-tap right arrow for speed boost
-    if (e.code === 'ArrowRight' && !gameOver && !gameWon) {
-        const now = Date.now();
-        const timeSinceLastPress = now - lastRightArrowPress;
-
-        if (timeSinceLastPress < DOUBLE_TAP_THRESHOLD) {
-            activateBoost();
-        }
-        lastRightArrowPress = now;
-    }
 });
 
 document.addEventListener('keyup', (e) => {
     keys[e.code] = false;
+
+    // Space key release: end boost
+    if (e.code === 'Space') {
+        spacePressed = false;
+        if (isBoosting) {
+            isBoosting = false;
+            boostEndTime = Date.now();
+        }
+    }
 });
 
 // Touch controls for mobile
 canvas.addEventListener('touchstart', (e) => {
     e.preventDefault(); // Prevent scrolling and default touch behavior
 
-    const now = Date.now();
-    const timeSinceLastTouch = now - lastTouchTime;
-
-    // Double tap detected - boost!
-    if (timeSinceLastTouch < DOUBLE_TAP_THRESHOLD && !gameOver && !gameWon) {
-        activateBoost();
-    } else {
-        // Single tap - jump!
-        if (!gameOver) {
-            const canJump = !skier.isJumping || skierOnObstacle;
-            if (canJump) {
-                skier.velocityY = skier.jumpPower;
-                skier.isJumping = true;
-                skierOnObstacle = false;
-            }
-        } else {
-            // Restart game on tap when game over
-            restartGame();
+    if (!gameOver) {
+        // Jump on touch
+        const canJump = !skier.isJumping || skierOnObstacle;
+        if (canJump) {
+            skier.velocityY = skier.jumpPower;
+            skier.isJumping = true;
+            skierOnObstacle = false;
         }
+    } else {
+        // Restart game on tap when game over
+        restartGame();
     }
-
-    lastTouchTime = now;
 }, { passive: false });
 
 // Prevent default touch behavior to avoid scrolling
@@ -562,8 +595,24 @@ document.getElementById('endlessModeBtn').addEventListener('click', () => setGam
 document.getElementById('returnToMenuBtn').addEventListener('click', () => {
     showMenu = true;
     document.getElementById('modeMenu').style.display = 'flex';
+    // Stop background music when returning to menu
+    backgroundMusic.pause();
+    backgroundMusic.currentTime = 0;
     restartGame();
 });
+
+// Sound toggle button
+document.getElementById('soundToggleBtn').addEventListener('click', toggleSound);
+
+// Initialize sound button state
+const soundBtn = document.getElementById('soundToggleBtn');
+if (soundEnabled) {
+    soundBtn.textContent = '🔊 Sound: ON';
+    soundBtn.classList.add('sound-on');
+} else {
+    soundBtn.textContent = '🔇 Sound: OFF';
+    soundBtn.classList.remove('sound-on');
+}
 
 // Draw pixelated rectangle
 function drawPixelRect(x, y, width, height, color) {
@@ -942,20 +991,28 @@ function update() {
 
     // Check boost state
     const now = Date.now();
-    const timeSinceBoostStart = now - boostStartTime;
 
-    if (isBoosting && timeSinceBoostStart > BOOST_DURATION) {
-        isBoosting = false;
+    if (isBoosting) {
+        const timeSinceBoostStart = now - boostStartTime;
+
+        // Max boost duration is 0.8s, even if space is still held
+        if (timeSinceBoostStart >= BOOST_DURATION) {
+            isBoosting = false;
+            boostEndTime = now;
+        }
     }
 
     // Apply speed boost multiplier with smooth deceleration
     let speedMultiplier = 1.0;
     if (isBoosting) {
         speedMultiplier = 2.5;
-    } else if (timeSinceBoostStart < BOOST_DURATION + BOOST_DECEL_DURATION) {
-        // Smooth deceleration phase
-        const decelProgress = (timeSinceBoostStart - BOOST_DURATION) / BOOST_DECEL_DURATION;
-        speedMultiplier = 2.5 - (1.5 * decelProgress); // Smoothly go from 2.5 to 1.0
+    } else {
+        // Smooth deceleration phase after boost ends
+        const timeSinceBoostEnd = now - boostEndTime;
+        if (timeSinceBoostEnd < BOOST_DECEL_DURATION) {
+            const decelProgress = timeSinceBoostEnd / BOOST_DECEL_DURATION;
+            speedMultiplier = 2.5 - (1.5 * decelProgress); // Smoothly go from 2.5 to 1.0
+        }
     }
 
     // Update background scroll (scaled) with boost
@@ -1446,8 +1503,8 @@ function drawBoostMeter() {
 
     // Calculate boost cooldown progress
     const now = Date.now();
-    const timeSinceBoost = now - lastBoostTime;
-    const cooldownProgress = Math.min(1, timeSinceBoost / BOOST_COOLDOWN);
+    const timeSinceBoostEnded = now - boostEndTime;
+    const cooldownProgress = Math.min(1, timeSinceBoostEnded / BOOST_COOLDOWN);
     const isReady = cooldownProgress >= 1;
 
     // Draw label
