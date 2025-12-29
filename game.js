@@ -61,6 +61,31 @@ let gameOver = false;
 let gameOverStart = 0;
 let skierOnObstacle = false;
 
+// Game mode
+let gameMode = 'normal'; // 'normal' or 'endless'
+let showMenu = true;
+
+// High score for endless mode
+let endlessHighScore = 0;
+
+// Load saved preferences
+const savedMode = localStorage.getItem('skiGameMode');
+if (savedMode) {
+    gameMode = savedMode;
+}
+const savedHighScore = localStorage.getItem('skiEndlessHighScore');
+if (savedHighScore) {
+    endlessHighScore = parseInt(savedHighScore);
+}
+
+// Function to set game mode
+function setGameMode(mode) {
+    gameMode = mode;
+    localStorage.setItem('skiGameMode', mode);
+    showMenu = false;
+    restartGame();
+}
+
 // Speed boost state (fart boost!)
 let isBoosting = false;
 let boostStartTime = 0;
@@ -217,6 +242,13 @@ function checkCollisions() {
                 // Collision - game over!
                 gameOver = true;
                 gameOverStart = Date.now();
+
+                // Update high score in endless mode
+                if (gameMode === 'endless' && distanceTraveled > endlessHighScore) {
+                    endlessHighScore = Math.floor(distanceTraveled);
+                    localStorage.setItem('skiEndlessHighScore', endlessHighScore);
+                }
+
                 return;
             }
         }
@@ -354,6 +386,10 @@ const TOTAL_DISTANCE = 3000; // Total distance to the present in meters
 const PIXELS_PER_METER = 10; // How many pixels equal one meter
 let distanceTraveled = 0;
 
+// Milestone tracking for endless mode
+let lastMilestone = 0;
+const MILESTONE_INTERVAL = 1000; // Every 1000m
+
 // Mountains (parallax - slower) - base values, will be scaled when drawing
 const mountains = [
     { x: 0, width: 200, height: 120 },
@@ -430,6 +466,9 @@ function restartGame() {
     lastTouchTime = 0;
     fartClouds = [];
     lastHardObstacleTime = 0;
+    // Reset milestone tracking
+    lastMilestone = 0;
+    milestoneAnimation = null;
 }
 
 document.addEventListener('keydown', (e) => {
@@ -514,6 +553,17 @@ canvas.addEventListener('touchmove', (e) => {
 canvas.addEventListener('touchend', (e) => {
     e.preventDefault();
 }, { passive: false });
+
+// Menu button listeners
+document.getElementById('normalModeBtn').addEventListener('click', () => setGameMode('normal'));
+document.getElementById('endlessModeBtn').addEventListener('click', () => setGameMode('endless'));
+
+// Return to menu button
+document.getElementById('returnToMenuBtn').addEventListener('click', () => {
+    showMenu = true;
+    document.getElementById('modeMenu').style.display = 'flex';
+    restartGame();
+});
 
 // Draw pixelated rectangle
 function drawPixelRect(x, y, width, height, color) {
@@ -909,7 +959,14 @@ function update() {
     backgroundOffset += BASE_SCROLL_SPEED * SCALE * speedMultiplier;
 
     // Update distance traveled
-    distanceTraveled = Math.min(backgroundOffset / (PIXELS_PER_METER * SCALE), TOTAL_DISTANCE);
+    if (gameMode === 'endless') {
+        distanceTraveled = backgroundOffset / (PIXELS_PER_METER * SCALE);
+    } else {
+        distanceTraveled = Math.min(backgroundOffset / (PIXELS_PER_METER * SCALE), TOTAL_DISTANCE);
+    }
+
+    // Check for milestones
+    checkMilestone();
 
     // Update fart clouds
     fartClouds = fartClouds.filter(cloud => {
@@ -921,8 +978,8 @@ function update() {
         return cloud.lifetime < 800; // Remove after 800ms
     });
 
-    // Show present when approaching the end
-    if (distanceTraveled >= TOTAL_DISTANCE * 0.9 && !presentVisible) {
+    // Show present when approaching the end (normal mode only)
+    if (gameMode === 'normal' && distanceTraveled >= TOTAL_DISTANCE * 0.9 && !presentVisible) {
         presentVisible = true;
         presentX = CANVAS_WIDTH + 300 * SCALE; // Start off-screen to the right
     }
@@ -1430,6 +1487,11 @@ function drawBoostMeter() {
 
 // Draw progress bar and distance counter
 function drawProgressBar() {
+    if (gameMode === 'endless') {
+        drawEndlessDistanceCounter();
+        return;
+    }
+
     const padding = 20 * SCALE;
     const barWidth = 300 * SCALE;
     const barHeight = 20 * SCALE;
@@ -1487,6 +1549,121 @@ function drawProgressBar() {
     ctx.fillText(distanceText, barX + barWidth / 2, counterY);
 }
 
+// Draw distance counter for endless mode
+function drawEndlessDistanceCounter() {
+    const padding = 20 * SCALE;
+    const counterX = padding;
+    const counterY = CANVAS_HEIGHT - padding - 30 * SCALE;
+
+    // Draw label
+    ctx.font = `bold ${Math.floor(14 * SCALE)}px monospace`;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'bottom';
+
+    // Shadow
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillText('Distance', counterX + 2 * SCALE, counterY - 50 * SCALE + 2 * SCALE);
+
+    // Label text
+    ctx.fillStyle = '#000000';
+    ctx.fillText('Distance', counterX, counterY - 50 * SCALE);
+
+    // Draw current distance (big number)
+    const distanceText = `${Math.floor(distanceTraveled)}m`;
+    ctx.font = `bold ${Math.floor(32 * SCALE)}px monospace`;
+
+    // Shadow for big number
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillText(distanceText, counterX + 3 * SCALE, counterY + 3 * SCALE);
+
+    // Main number
+    ctx.fillStyle = '#E53935';
+    ctx.fillText(distanceText, counterX, counterY);
+
+    // Draw high score below current distance
+    if (endlessHighScore > 0) {
+        const highScoreText = `Best: ${endlessHighScore}m`;
+        ctx.font = `bold ${Math.floor(12 * SCALE)}px monospace`;
+        ctx.textBaseline = 'top';
+
+        // Shadow
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillText(highScoreText, counterX + 2 * SCALE, counterY + 10 * SCALE + 2 * SCALE);
+
+        // Text
+        ctx.fillStyle = '#2E7D32';
+        ctx.fillText(highScoreText, counterX, counterY + 10 * SCALE);
+    }
+}
+
+// Show milestone celebration
+let milestoneAnimation = null;
+
+function checkMilestone() {
+    if (gameMode !== 'endless') return;
+
+    const currentMilestone = Math.floor(distanceTraveled / MILESTONE_INTERVAL) * MILESTONE_INTERVAL;
+
+    if (currentMilestone > lastMilestone && currentMilestone > 0) {
+        lastMilestone = currentMilestone;
+        milestoneAnimation = {
+            distance: currentMilestone,
+            startTime: Date.now(),
+            duration: 2000 // 2 seconds
+        };
+    }
+}
+
+function drawMilestone() {
+    if (!milestoneAnimation) return;
+
+    const elapsed = Date.now() - milestoneAnimation.startTime;
+    if (elapsed > milestoneAnimation.duration) {
+        milestoneAnimation = null;
+        return;
+    }
+
+    // Fade in first 300ms, stay, fade out last 500ms
+    let opacity = 1;
+    if (elapsed < 300) {
+        opacity = elapsed / 300;
+    } else if (elapsed > milestoneAnimation.duration - 500) {
+        opacity = (milestoneAnimation.duration - elapsed) / 500;
+    }
+
+    // Scale animation
+    const scale = 1 + Math.sin((elapsed / milestoneAnimation.duration) * Math.PI) * 0.2;
+
+    ctx.save();
+    ctx.globalAlpha = opacity;
+
+    // Center position
+    const centerX = CANVAS_WIDTH / 2;
+    const centerY = CANVAS_HEIGHT / 3;
+
+    // Draw milestone text
+    ctx.font = `bold ${Math.floor(48 * SCALE * scale)}px monospace`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    // Shadow
+    ctx.fillStyle = '#000000';
+    ctx.fillText(`${milestoneAnimation.distance}m!`, centerX + 4 * SCALE, centerY + 4 * SCALE);
+
+    // Main text
+    ctx.fillStyle = '#FFD700'; // Gold color
+    ctx.fillText(`${milestoneAnimation.distance}m!`, centerX, centerY);
+
+    // Subtitle
+    ctx.font = `bold ${Math.floor(20 * SCALE)}px monospace`;
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillText('Milestone Reached!', centerX + 2 * SCALE, centerY + 40 * SCALE + 2 * SCALE);
+    ctx.fillStyle = '#000000';
+    ctx.fillText('Milestone Reached!', centerX, centerY + 40 * SCALE);
+
+    ctx.restore();
+}
+
 // Render game
 function render() {
     // Clear canvas with sky color
@@ -1519,6 +1696,9 @@ function render() {
     // Draw progress bar and distance counter
     drawProgressBar();
 
+    // Draw milestone animation
+    drawMilestone();
+
     // Draw win screen if game is won
     if (gameWon) {
         drawWinScreen();
@@ -1528,6 +1708,14 @@ function render() {
     if (gameOver) {
         drawGameOverScreen();
     }
+
+    // Show/hide menu
+    const menuElement = document.getElementById('modeMenu');
+    if (showMenu) {
+        menuElement.style.display = 'flex';
+    } else {
+        menuElement.style.display = 'none';
+    }
 }
 
 // Game loop
@@ -1536,6 +1724,9 @@ function gameLoop() {
     render();
     requestAnimationFrame(gameLoop);
 }
+
+// Show menu on startup
+document.getElementById('modeMenu').style.display = 'flex';
 
 // Start the game
 gameLoop();
